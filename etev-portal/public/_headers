@@ -1,0 +1,14 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self)
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'
+/sw.js
+  Cache-Control: no-cache
+/app/ETEV-Fleet.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="ETEV-Fleet.apk"
+  Cache-Control: no-cache
+/app/app.json
+  Cache-Control: no-cache

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="am">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ETEV — አስተያየት (Feedback)</title>
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#0b1220;--card:#111a2e;--line:#24324f;--text:#e8eefc;--muted:#94a3c4;--accent:#10b981;--star:#fbbf24;--bad:#f43f5e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI","Noto Sans Ethiopic","Nyala",sans-serif}
+main{max-width:460px;margin:0 auto;padding:20px 16px 40px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.logo{width:40px;height:40px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;color:#03251a}
+h1{font-size:19px;margin:0}
+.sub{color:var(--muted);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px}
+.stars{display:flex;justify-content:space-between;gap:6px;margin:6px 0 2px}
+.stars button{flex:1;background:none;border:0;font-size:40px;line-height:1;color:#3a4767;cursor:pointer;padding:4px 0}
+.stars button.on{color:var(--star)}
+.hint{text-align:center;color:var(--muted);min-height:20px;font-size:14px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tags button{border:1px solid var(--line);background:#0d1527;color:var(--text);border-radius:999px;padding:8px 12px;font-size:14px;cursor:pointer}
+.tags button.on{background:#13324a;border-color:#38bdf8}
+label{display:block;font-size:14px;color:var(--muted);margin-top:12px}
+textarea,input{width:100%;margin-top:6px;background:#0d1527;border:1px solid var(--line);border-radius:12px;color:var(--text);padding:10px 12px;font:inherit}
+textarea{min-height:90px;resize:vertical}
+.send{width:100%;margin-top:16px;background:var(--accent);color:#03251a;border:0;border-radius:14px;padding:14px;font-size:17px;font-weight:800;cursor:pointer}
+.send:disabled{opacity:.5}
+.err{color:var(--bad);margin-top:10px;font-size:14px}
+.done{text-align:center;padding:30px 10px}
+.done .big{font-size:56px}
+.small{color:var(--muted);font-size:12px;margin-top:14px;text-align:center}
+</style>
+</head>
+<body>
+<main>
+ <div class="brand"><div class="logo">EV</div><div><h1>ET EV — የጉዞዎን ይንገሩን</h1><div class="sub">How was your ride? · <span id="plate">…</span></div></div></div>
+ <div id="form">
+  <div class="card">
+   <div style="font-weight:700">ጉዞዎን ይገምግሙ (Rate your ride)</div>
+   <div class="stars" id="stars" role="radiogroup" aria-label="Stars"></div>
+   <div class="hint" id="hint">ኮከብ ይንኩ (tap a star)</div>
+  </div>
+  <div class="card">
+   <div style="font-weight:700" id="tagQ">ስለምን ነው? (What is it about?)</div>
+   <div class="tags" id="tags"></div>
+   <label for="text">አስተያየት (Comment — optional)</label>
+   <textarea id="text" maxlength="500" placeholder="…"></textarea>
+   <label for="phone">ስልክ ቁጥር — ምላሽ ከፈለጉ (Phone — optional, if you want us to call back)</label>
+   <input id="phone" inputmode="tel" placeholder="09…" maxlength="14">
+   <button class="send" id="send" disabled>ላክ (Send)</button>
+   <div class="err" id="err"></div>
+  </div>
+  <div class="small">ስምዎ አይጠየቅም። ስልክ ቁጥርዎ ለETEV ብቻ ነው። · Your phone number is seen only by ETEV.</div>
+ </div>
+ <div id="thanks" class="card done" hidden><div class="big">🙏</div><h1>እናመሰግናለን!</h1><p class="sub">Thank you — your feedback helps our drivers.</p></div>
+</main>
+<script>
+(function(){
+ const $=id=>document.getElementById(id),code=(new URLSearchParams(location.search).get('v')||'').toLowerCase().replace(/[^a-f0-9]/g,'');
+ const H=['','በጣም መጥፎ (Very bad)','መጥፎ (Bad)','መካከለኛ (OK)','ጥሩ (Good)','በጣም ጥሩ (Excellent)'];
+ let stars=0;const tags=new Set();
+ const err=t=>{$('err').textContent=t||''};
+ function draw(){[...$('stars').children].forEach((b,i)=>{b.classList.toggle('on',i<stars);b.setAttribute('aria-checked',String(i+1===stars))});$('hint').textContent=stars?H[stars]:'ኮከብ ይንኩ (tap a star)';
+  $('tagQ').textContent=stars&&stars<=3?'ችግሩ ምን ነበር? (What went wrong?)':'ምን ጥሩ ነበር? (What was good?)';$('send').disabled=!stars}
+ for(let i=1;i<=5;i++){const b=document.createElement('button');b.type='button';b.textContent='★';b.setAttribute('role','radio');b.setAttribute('aria-label',i+' star'+(i>1?'s':''));b.onclick=()=>{stars=i;draw()};$('stars').appendChild(b)}
+ draw();
+ if(code.length<8){$('plate').textContent='—';err('ይህ QR አይሰራም (This QR code is not valid)');return}
+ fetch('/api/feedback/v/'+code).then(r=>r.json().then(d=>({ok:r.ok,d}))).then(({ok,d})=>{
+  if(!ok){err('ይህ QR አይሰራም (This QR code is not active)');$('send').disabled=true;return}
+  $('plate').textContent=d.plate;
+  Object.entries(d.tags).forEach(([k,l])=>{const b=document.createElement('button');b.type='button';b.textContent=l;b.setAttribute('aria-pressed','false');b.onclick=()=>{tags.has(k)?tags.delete(k):tags.add(k);b.classList.toggle('on',tags.has(k));b.setAttribute('aria-pressed',String(tags.has(k)))};$('tags').appendChild(b)});
+ }).catch(()=>err('ኢንተርኔት የለም (No connection)'));
+ $('send').onclick=async()=>{err();$('send').disabled=true;
+  try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code,stars,tags:[...tags],text:$('text').value,phone:$('phone').value})});const d=await r.json();
+   if(!r.ok)throw new Error(d.error||'Error');$('form').hidden=true;$('thanks').hidden=false}catch(e){err('❌ '+e.message);$('send').disabled=false}};
+})();
+</script>
+</body>
+</html>

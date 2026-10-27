@@ -1,0 +1,8 @@
+{
+  "name": "ETEV Fleet Portal — Cabby & Route Logbook",
+  "description": "ETEV Fleet Portal — Cabby & Route Logbook with real-time operational dashboard, energy tracking, and digital driver logbooks.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

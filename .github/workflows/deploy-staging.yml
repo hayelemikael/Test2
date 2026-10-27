@@ -1,0 +1,51 @@
+name: Deploy test portal (staging)
+# Every push to the "staging" branch goes to the test portal only: etev-fleet-portal-staging.<subdomain>.workers.dev
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+concurrency: staging
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: etev-portal
+          wranglerVersion: "4"
+          command: deploy --env staging
+      - name: First time only — secrets and test data
+        working-directory: etev-portal
+        run: |
+          set -e
+          W="npx -y wrangler@4"
+          if $W secret list --env staging 2>/dev/null | grep -q SESSION_SECRET; then echo "Test portal already set up"; exit 0; fi
+          KEY=$(openssl rand -hex 16)
+          openssl rand -hex 32 | $W secret put SESSION_SECRET --env staging
+          echo "$KEY" | $W secret put SETUP_KEY --env staging
+          SUB=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain')
+          URL="https://etev-fleet-portal-staging.$SUB.workers.dev"
+          for i in 1 2 3 4 5 6; do curl -sf "$URL/api/version" >/dev/null && break; sleep 10; done
+          # Test people and vehicles (made-up names; test PINs only)
+          curl -sf -X POST "$URL/api/setup" -H 'content-type: application/json' -d "{\"key\":\"$KEY\",\"adminPin\":\"202610\",\"adminName\":\"Test Admin\",\"managers\":[],\"vehicles\":[
+            {\"plate\":\"TEST-C1\",\"driver\":\"Test Driver 1\",\"phone\":\"0900000001\",\"pin\":\"1111\",\"nextStartKm\":1000,\"mode\":\"cabby\"},
+            {\"plate\":\"TEST-C2\",\"driver\":\"Test Driver 2\",\"phone\":\"0900000002\",\"pin\":\"2222\",\"nextStartKm\":2000,\"mode\":\"cabby\"},
+            {\"plate\":\"TEST-R1\",\"driver\":\"Test Driver 3\",\"phone\":\"0900000003\",\"pin\":\"3333\",\"nextStartKm\":3000,\"mode\":\"route\"},
+            {\"plate\":\"TEST-R2\",\"driver\":\"Test Driver 4\",\"phone\":\"0900000004\",\"pin\":\"4444\",\"nextStartKm\":4000,\"mode\":\"route\"}]}"
+          TOK=$(curl -sf -X POST "$URL/api/login" -H 'content-type: application/json' -d '{"role":"staff","pin":"202610"}' | jq -r .token)
+          curl -sf -X PUT "$URL/api/admin/users" -H 'content-type: application/json' -H "authorization: Bearer $TOK" \
+            -d '[{"name":"Test Manager","role":"manager","pin":"303030"},{"name":"Test Fleet","role":"fleet","pin":"404040"},{"name":"Test Finance","role":"finance","pin":"505050"}]'
+          echo "Test portal ready: $URL"
+      - name: Test fleet for the weekly plan (once) — 10 Cabby + 6 Route, 37 drivers
+        working-directory: etev-portal
+        run: |
+          SUB=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain')
+          URL="https://etev-fleet-portal-staging.$SUB.workers.dev"
+          for i in 1 2 3 4 5 6; do curl -sf "$URL/api/version" >/dev/null && break; sleep 10; done
+          node scripts/seed-staging-fleet.mjs "$URL" 202610

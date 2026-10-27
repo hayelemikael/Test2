@@ -1,0 +1,12 @@
+{
+  "name": "etev-fleet-portal",
+  "version": "4.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --no-warnings server.js",
+    "build": "node --check server.js && node --check etev-portal/src/worker.js",
+    "start": "node --no-warnings server.js",
+    "lint": "node --check server.js && node --check etev-portal/src/worker.js"
+  }
+}

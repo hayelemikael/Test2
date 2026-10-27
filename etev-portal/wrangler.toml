@@ -1,0 +1,46 @@
+name = "etev-fleet-portal"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# ⚡ Run the Worker next to the database (D1 is in Europe): each request makes many small database calls,
+# so running near the database is much faster for phones in Ethiopia than running near the phone.
+[placement]
+mode = "smart"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "etev-fleet"
+database_id = "6527eaf2-92a9-4caf-94e8-1b91d639dae0"
+# ...
+
+[triggers]
+crons = ["5 * * * *"]
+
+# Telegram: set TG_TOKEN and TG_CHAT_ID as Secrets in the Cloudflare dashboard.
+# Never put tokens in this file.
+
+# ---- 🧪 Test portal (staging): its own Worker and its own database; no Telegram secrets, so it never sends messages ----
+# Deployed from the "staging" branch by .github/workflows/deploy-staging.yml. The live portal is not touched.
+[env.staging]
+name = "etev-fleet-portal-staging"
+
+[env.staging.placement]
+mode = "smart"
+
+[env.staging.assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "etev-fleet-staging"
+database_id = "b198ae86-289c-42c5-8e10-a97c499bcdef"
+
+[env.staging.triggers]
+crons = ["5 * * * *"]

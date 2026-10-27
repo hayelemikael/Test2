@@ -38,6 +38,11 @@ const DEF = {
   expenseCats: [{ id: 'repair', name: 'ጥገና · Repair', fleet: true }, { id: 'tyres', name: 'ጎማ · Tyres', fleet: true }, { id: 'insurance', name: 'ኢንሹራንስ · Insurance' },
     { id: 'parking', name: 'ፓርኪንግ · Parking' }, { id: 'other', name: 'ሌላ · Other' }],
   debtLockEtb: 500, // vehicle gate locks while the driver owes more than this (0 = never lock)
+  debtPermits: {}, // temporary driver debt installment / gate unlock permits: { [driverId]: { until, note, by, at } }
+  chargeRateEtb: 4.5, // default ETB per kWh for charging auto-calculation
+  chargeMaxEtb: 2500, // max ETB allowed for a single charging session (0 = no limit)
+  chargeStations: ['ቦሌ ቻርጅ ጣቢያ (Bole)', 'መገናኛ ጣቢያ (Megenagna)', 'ዋና ጋራዥ (Main Garage)', 'ሳሪስ ጣቢያ (Saris)', 'M8trix'],
+  inspItems: null, // custom shift inspection checklist items (null = default INSP_ITEMS)
   // v4.3: day close, devices, breaks, incidents, personal Telegram
   groupTg: true, // the old shared Telegram group keeps getting messages until the switch to personal messages is finished
   deviceLock: false, // drivers may only sign in from phones the Fleet Admin approved (the first phone is approved by itself)
@@ -74,26 +79,27 @@ const DEF = {
   perms: {
     manager: { approve: true, photos: true, opsDash: true },
     fleet: { photos: true, charging: true, startKm: true, service: true, vehicles: true, driverPin: true, assign: true, opsDash: true, mgrStats: true, repairs: true, incidents: true },
+    charging: { charging: true, opsDash: true, photos: true },
     finance: { photos: true, opsDash: true, payments: true, platform: true, reports: true, salary: true, expenses: true, closeDay: true },
   },
   // Route / zone lines: one line with a middle stop; a full ride pays fullFare, a half ride (to/from the middle stop) pays shortFare
   routes: [{ id: 'at-4k-meg', name: 'አውቶቡስ ተራ – 4 ኪሎ – መገናኛ', from: 'አውቶቡስ ተራ', mid: '4 ኪሎ', to: 'መገናኛ', fullFare: 60, shortFare: 30 }],
 };
-const ROLES = ['manager', 'fleet', 'finance'];
+const ROLES = ['manager', 'fleet', 'charging', 'finance'];
 const PERM_KEYS = ['approve', 'photos', 'charging', 'startKm', 'service', 'vehicles', 'driverPin', 'assign', 'opsDash', 'payments', 'platform', 'reports', 'salary', 'expenses', 'repairs', 'mgrStats', 'audit', 'closeDay', 'incidents'];
 // Message types: label and the default level per role (0 off, 1 bell, 2 bell + Telegram). The Super Admin changes these in Admin.
 const NOTIFY = {
-  incident: { l: '🚨 አደጋ / ችግር (Incident)', def: { admin: 2, manager: 2, fleet: 2, finance: 1 } },
-  vehicleHold: { l: '⏸ በምርመራ / ጥገና ያለ መኪና (Vehicle off the road)', def: { admin: 1, manager: 1, fleet: 2 } },
-  pending: { l: '⏳ ያልጸደቁ ሪፖርቶች — ጠዋት (Pending reports, morning)', def: { admin: 1, manager: 2 } },
-  newPending: { l: '📥 አዲስ ሪፖርት ገባ (New report sent)', def: { admin: 1, manager: 1 } },
+  incident: { l: '🚨 አደጋ / ችግር (Incident)', def: { admin: 2, manager: 2, fleet: 2, charging: 1, finance: 1 } },
+  vehicleHold: { l: '⏸ በምርመራ / ጥገና ያለ መኪና (Vehicle off the road)', def: { admin: 1, manager: 1, fleet: 2, charging: 1 } },
+  pending: { l: '⏳ ያልጸደቁ ሪፖርቶች — ጠዋት (Pending reports, morning)', def: { admin: 1, manager: 2, charging: 1 } },
+  newPending: { l: '📥 አዲስ ሪፖርት ገባ (New report sent)', def: { admin: 1, manager: 1, charging: 1 } },
   closeDue: { l: '📕 ዛሬ የሚዘጉ ቀኖች (Days to close today)', def: { admin: 1, finance: 2 } },
   notClosed: { l: '⚠️ ቀኑ አልተዘጋም (Day not closed)', def: { admin: 2, finance: 1 } },
   dayClosed: { l: '📕 ቀን ተዘጋ / ተከፈተ (Day closed / reopened)', def: { admin: 1, finance: 1 } },
   security: { l: '🔐 አዲስ መሳሪያ / የጋራ ስልክ (Device & PIN)', def: { admin: 2 } },
-  shiftAlert: { l: '🔔 የሪፖርት ማስጠንቀቂያ — ባትሪ፣ ገንዘብ፣ ኪ.ሜ (Report alerts)', def: { admin: 1, manager: 1 } },
+  shiftAlert: { l: '🔔 የሪፖርት ማስጠንቀቂያ — ባትሪ፣ ገንዘብ፣ ኪ.ሜ (Report alerts)', def: { admin: 1, manager: 1, charging: 1 } },
   breakOver: { l: '☕ ከገደብ በላይ እረፍት (Break over the limit)', def: { manager: 1, fleet: 1 } },
-  digest: { l: '🟡 የቀን ማጠቃለያ — ጠዋት (Daily summary)', def: { admin: 2, manager: 2, fleet: 2, finance: 2 } },
+  digest: { l: '🟡 የቀን ማጠቃለያ — ጠዋት (Daily summary)', def: { admin: 2, manager: 2, fleet: 2, charging: 1, finance: 2 } },
   usage: { l: '📈 የነፃ እቅድ ገደብ እየቀረበ ነው (Free-plan limit near)', def: { admin: 2 } },
   roster: { l: '📅 የፈቃድ ጥያቄ / የፕሮግራም ክፍተት (Leave requests, plan gaps)', def: { admin: 1, fleet: 2 } },
   inspection: { l: '📋 ፍተሻ፦ ችግር / ያልተደረገ / ተረኛ ያልደረሰ (Inspection & handover)', def: { admin: 1, fleet: 2, manager: 1 } },
@@ -104,10 +110,10 @@ const NOTIFY = {
   docs: { l: '📄 ሰነድ ማብቂያ — መንጃ ፈቃድ፣ ኢንሹራንስ፣ ቦሎ (Documents expiring)', def: { admin: 2, manager: 1, fleet: 2 } },
   serviceDue: { l: '🔧 የሰርቪስ ኪ.ሜ መድረስ (Service due soon / overdue)', def: { admin: 1, manager: 1, fleet: 2 } },
   debtLimit: { l: '💸 የሹፌር ዕዳ ከገደብ አለፈ (Driver debt over limit)', def: { admin: 2, manager: 1, fleet: 1, finance: 2 } },
-  lowBatteryRepeat: { l: '🔋 ተደጋጋሚ ዝቅተኛ ባትሪ በ7 ቀን (Repeated low battery in 7d)', def: { admin: 2, manager: 1, fleet: 2 } },
-  broadcast: { l: '📢 የአስተዳደር ማስታወቂያ (Staff broadcast announcement)', def: { admin: 1, manager: 1, fleet: 1, finance: 1 } },
+  lowBatteryRepeat: { l: '🔋 ተደጋጋሚ ዝቅተኛ ባትሪ በ7 ቀን (Repeated low battery in 7d)', def: { admin: 2, manager: 1, fleet: 2, charging: 2 } },
+  broadcast: { l: '📢 የአስተዳደር ማስታወቂያ (Staff broadcast announcement)', def: { admin: 1, manager: 1, fleet: 1, charging: 1, finance: 1 } },
 };
-const NROLES = ['admin', 'manager', 'fleet', 'finance'];
+const NROLES = ['admin', 'manager', 'fleet', 'charging', 'finance'];
 // Management channel (v4.4): small actions go out once an hour in one bundle; the rest at once.
 const FEED_MINOR = ['LOGIN', 'BREAK_START', 'BREAK_END', 'TG_LINK', 'TG_UNLINK', 'BACKUP_DOWNLOAD', 'EXPORT_CSV', 'EXPORT_PAYROLL', 'EXPORT_PAYOUT', 'PHOTO', 'TELE_LOG'];
 const FEED_RICH = ['APPROVE', 'EDIT', 'INCIDENT']; // these are posted as a full report / with photos instead of one line
@@ -201,8 +207,8 @@ const getKV = async (env, k) => (await env.DB.prepare('SELECT v FROM config WHER
 const setKV = (env, k, v) => env.DB.prepare('INSERT INTO config(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(k, String(v)).run();
 const delKV = (env, k) => env.DB.prepare('DELETE FROM config WHERE k=?').bind(k).run();
 async function getCfg(env) {
-  const v = await getKV(env, 'policy');
-  return { ...DEF, ...(v ? JSON.parse(v) : {}) };
+  const v = await getKV(env, 'policy'), p = v ? JSON.parse(v) : {};
+  return { ...DEF, ...p, perms: { ...DEF.perms, ...(p.perms || {}) } };
 }
 // Every audit line also records the device: its id (kept on the phone), phone/browser, IP and city; GPS when the driver allowed it.
 // env._ri is set per request in handle(); scheduled jobs have none.
@@ -469,6 +475,13 @@ async function ensureSchema(env) {
     await alt("ALTER TABLE shifts ADD COLUMN reject_fields TEXT NOT NULL DEFAULT ''");
     await alt('ALTER TABLE charging ADD COLUMN shift_id INTEGER');
     await setKV(env, 'schema_ver', 20);
+  }
+  if (ver < 21) {
+    // v5.0: dedicated Charging Department fields (charging trip distance chg_km and note)
+    const alt = async q => { try { await env.DB.prepare(q).run(); } catch (e) { if (!/duplicate column/i.test(String(e?.message || e))) throw e; } };
+    await alt('ALTER TABLE charging ADD COLUMN chg_km REAL NOT NULL DEFAULT 0');
+    await alt("ALTER TABLE charging ADD COLUMN note TEXT NOT NULL DEFAULT ''");
+    await setKV(env, 'schema_ver', 21);
   }
   schemaOk = true;
 }
@@ -851,6 +864,7 @@ async function balances(env, did, asOf = null) {
   for (const r of (await prep(`SELECT driver_id k,SUM(res_amt) s FROM tele_txn WHERE res='debt'${wTele} GROUP BY driver_id`, args).all()).results) { const o = by[r.k] ||= mk(); o.cash.owed += num(r.s); o.teleDebt = num(r.s); }
   for (const k in by) {
     const o = by[k];
+    o._did = String(k);
     o.owed = o.cash.owed + o.penalty.owed; o.paid = o.cash.paid + o.penalty.paid; o.balance = o.owed - o.paid;
     o.cash.balance = o.cash.owed - o.cash.paid; o.penalty.balance = o.penalty.owed - o.penalty.paid;
   }
@@ -892,6 +906,28 @@ const INSP_ITEMS = { tyres: { l: 'ጎማዎች (Tyres)', serious: true }, brakes
   lights: { l: 'መብራቶችና ፍሬቻ (Lights)' }, mirrors: { l: 'መስታወቶች (Mirrors)' }, clean: { l: 'የውስጥ ንጽህና (Clean inside)' }, body: { l: 'የውጭ ጭረት / ጉዳት (Body damage)' },
   seats: { l: 'ወንበሮችና በሮች (Seats & doors)' }, safety: { l: 'የእሳት ማጥፊያ እና የመጀመሪያ እርዳታ (Extinguisher, first aid)' },
   tv: { l: '📺 ቲቪ (TV)' }, flash: { l: '💾 ፍላሽ (Flash drive)' }, speaker: { l: '🔊 ስፒከር (Speaker)' }, phone: { l: '📱 ስልክ (Phone)' }, led: { l: '🪧 የላይ LED ስክሪን (Roof LED screen)' } };
+const INSP_PROP_DEF = new Set(['tv', 'flash', 'speaker', 'phone', 'led', 'safety']);
+function inspItemsOf(cfg) {
+  const raw = cfg?.inspItems;
+  if (Array.isArray(raw) && raw.length) {
+    const out = {};
+    for (const it of raw) {
+      const id = String(it?.id || '').replace(/[^a-z0-9_]/gi, '').slice(0, 30);
+      const l = String(it?.l || '').trim().slice(0, 80);
+      if (id && l) out[id] = { l, serious: !!it.serious, prop: !!it.prop };
+    }
+    if (Object.keys(out).length) return out;
+  } else if (raw && typeof raw === 'object' && Object.keys(raw).length) {
+    const out = {};
+    for (const [k, x] of Object.entries(raw)) {
+      const id = String(k || '').replace(/[^a-z0-9_]/gi, '').slice(0, 30);
+      const l = String(x?.l || '').trim().slice(0, 80);
+      if (id && l) out[id] = { l, serious: !!x.serious, prop: x.prop !== undefined ? !!x.prop : INSP_PROP_DEF.has(id) };
+    }
+    if (Object.keys(out).length) return out;
+  }
+  return Object.fromEntries(Object.entries(INSP_ITEMS).map(([k, x]) => [k, { l: x.l, serious: !!x.serious, prop: INSP_PROP_DEF.has(k) }]));
+}
 const INSP_SIDES = ['front', 'back', 'left', 'right'];
 const inspOut = r => r && ({ id: r.id, plate: r.plate, date: r.idate, shiftNo: r.shift_no, driverId: r.driver_id, outDriverId: r.out_driver_id, km: r.km, kmExpected: r.km_expected, battery: r.battery,
   items: JSON.parse(r.items || '{}'), note: r.note, serious: !!r.serious, status: r.status, lateMin: r.late_min, otMin: r.ot_min, at: r.at, decidedBy: r.decided_by || '', decision: r.decision || '' });
@@ -954,7 +990,17 @@ async function upsertMainDriver(env, plate, name, phone, pin) {
 // vehicles.driver / phone mirror the main driver's name and phone (used in reports and Telegram)
 const syncVehicleDrivers = env => env.DB.prepare("UPDATE vehicles SET driver=COALESCE((SELECT name FROM drivers WHERE id=vehicles.driver_id),driver), phone=COALESCE((SELECT phone FROM drivers WHERE id=vehicles.driver_id),phone) WHERE driver_id IS NOT NULL").run();
 const driverOut = (d, withSalary) => ({ id: d.id, name: d.name, phone: d.phone, active: !!d.active, ...(withSalary ? { salary: d.salary || 0 } : {}) });
-const debtLocked = (cfg, b) => num(cfg.debtLockEtb) > 0 && num(b?.balance) > num(cfg.debtLockEtb);
+const debtPermitOf = (cfg, did, date = null) => {
+  if (did == null) return null;
+  const p = cfg?.debtPermits?.[String(did)];
+  const d = date || addisDate(0);
+  return p && p.until && p.until >= d ? p : null;
+};
+const debtLocked = (cfg, b, did = null, date = null) => {
+  if (!(num(cfg.debtLockEtb) > 0 && num(b?.balance) > num(cfg.debtLockEtb))) return false;
+  if (debtPermitOf(cfg, did ?? b?._did, date)) return false;
+  return true;
+};
 
 // ---- Finance (v4.1): money in / money out, by day, vehicle, source and category ----
 const dAdd = (d, n) => new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
@@ -1722,7 +1768,7 @@ async function handle(req, env, ctx) {
   let body = {};
   const photoPath = path.match(/^\/api\/shifts\/(\d+)\/photo$/);
   if ((m === 'POST' || m === 'PUT') && !photoPath && !/^\/api\/(expenses|incidents|inspections|docs)\/\d+\/photo$/.test(path)) {
-    const limit = path === '/api/platform/import' || path === '/api/tele/statement' ? 1024 * 1024 : MAX_BODY; // report imports and Telebirr statements can be large
+    const limit = path === '/api/admin/backup-restore' ? 5 * 1024 * 1024 : (path === '/api/platform/import' || path === '/api/tele/statement' ? 1024 * 1024 : MAX_BODY); // report imports, Telebirr statements, and backup restores can be large
     if (num(req.headers.get('content-length')) > limit) return fail('Request too large', 413);
     const raw = await req.text();
     if (raw.length > limit) return fail('Request too large', 413);
@@ -1887,7 +1933,9 @@ async function handle(req, env, ctx) {
     if (/^https:\/\//.test(url.origin) && (await appOrigin(env)) !== url.origin) await setKV(env, 'app_origin', url.origin); // links in Telegram messages
     Object.assign(pub, { breakMaxMin: num(cfg.breakMaxMin), breakMaxCount: num(cfg.breakMaxCount), fleetPhone: cfg.fleetPhone || '', emergencyPhones: cfg.emergencyPhones || '', driverMaxBackDays: num(cfg.driverMaxBackDays) || 7,
       incKinds: Object.fromEntries(Object.entries(INC_KINDS).map(([k, v]) => [k, v.l])), breakReasons: BREAK_REASONS, missReasons: MISS_REASONS, tgBot: !!env.TG_TOKEN,
-      shiftTimes: cfg.shiftTimes || DEF.shiftTimes, requireInspection: !!cfg.requireInspection, handoverGraceMin: num(cfg.handoverGraceMin), routeBonus: cfg.routeBonus || DEF.routeBonus });
+      shiftTimes: cfg.shiftTimes || DEF.shiftTimes, requireInspection: !!cfg.requireInspection, handoverGraceMin: num(cfg.handoverGraceMin), routeBonus: cfg.routeBonus || DEF.routeBonus,
+      chargeRateEtb: num(cfg.chargeRateEtb ?? DEF.chargeRateEtb), chargeMaxEtb: num(cfg.chargeMaxEtb ?? DEF.chargeMaxEtb),
+      chargeStations: Array.isArray(cfg.chargeStations) && cfg.chargeStations.length ? cfg.chargeStations : DEF.chargeStations });
     const tgl = await env.DB.prepare('SELECT 1 x FROM tg_links WHERE who=?').bind(myWho).first();
     const unread = num((await env.DB.prepare('SELECT COUNT(*) n FROM notifications WHERE who=? AND seen=0').bind(myWho).first())?.n);
     const myPlan = myDriver ? (await env.DB.prepare("SELECT plate, shift_no FROM roster WHERE driver_id=? AND rdate=? AND kind='work' ORDER BY shift_no").bind(myDriver.id, addisDate(0)).all()).results.map(r => ({ plate: r.plate, shiftNo: r.shift_no })) : [];
@@ -2047,7 +2095,7 @@ async function handle(req, env, ctx) {
     if (staff && body.fleet && typeof body.fleet === 'object') {
       const fl = body.fleet;
       charges = (Array.isArray(fl.charges) ? fl.charges : []).slice(0, 5).map(c => ({ kwh: r2(num(c.kwh)), cost: r2(Math.max(0, num(c.cost))), socFrom: String(c.socFrom ?? '') === '' ? null : Math.min(100, Math.max(0, num(c.socFrom))),
-        socTo: String(c.socTo ?? '') === '' ? null : Math.min(100, Math.max(0, num(c.socTo))), km: r1(Math.max(0, num(c.km))), location: String(c.location || '').trim().slice(0, 60) }));
+        socTo: String(c.socTo ?? '') === '' ? null : Math.min(100, Math.max(0, num(c.socTo))), km: r1(Math.max(0, num(c.km))), location: String(c.location || '').trim().slice(0, 60), note: String(c.note || '').trim().slice(0, 120), by: String(c.by || '').trim().slice(0, 60) }));
       if (charges.some(c => !(c.kwh > 0) || c.kwh > 500)) return fail('⚡ የቻርጁን kWh ያስገቡ (kWh for each charge)');
       if (!charges.length && !fl.none) return fail('⚡ ቻርጁን ያስገቡ ወይም "ቻርጅ አልተደረገም" ይበሉ (Enter the charging or tick "no charging")');
       calc.charges = charges;
@@ -2123,9 +2171,9 @@ async function handle(req, env, ctx) {
     if (nextKm) stmts.push(auditStmt(env, actor, 'NEXT_KM', id, `${v.plate}: next start ${nextKm.calc} → ${nextKm.set} · ${nextKm.reason}`));
     const res = await env.DB.batch(stmts);
     if (!id) id = res[0].meta.last_row_id;
-    if (charges) { // ⚡ the charging entered at the approval goes to the charging list, linked to this report
-      const cs = [env.DB.prepare('DELETE FROM charging WHERE shift_id=?').bind(id)];
-      for (const c of charges) cs.push(env.DB.prepare('INSERT INTO charging(plate,chg_date,kwh,cost,soc_from,soc_to,odo_km,location,by_actor,created_at,shift_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(v.plate, calc.shiftDate, c.kwh, c.cost, c.socFrom, c.socTo, calc.endKm, c.location, actor, t, id));
+    if (charges) { // ⚡ the charging entered at the approval (or pre-filled by Charging Dept) goes to the charging list, linked to this report
+      const cs = [env.DB.prepare('DELETE FROM charging WHERE shift_id=? OR (plate=? AND chg_date=? AND shift_id IS NULL)').bind(id, v.plate, calc.shiftDate)];
+      for (const c of charges) cs.push(env.DB.prepare('INSERT INTO charging(plate,chg_date,kwh,cost,soc_from,soc_to,odo_km,chg_km,location,note,by_actor,created_at,shift_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(v.plate, calc.shiftDate, c.kwh, c.cost, c.socFrom, c.socTo, calc.endKm, num(c.km), c.location, c.note || '', c.by || actor, t, id));
       await env.DB.batch(cs);
     }
     if (nextKm) bg(notify(env, cfg, 'shiftAlert', `🔢 ${actor}፦ ${v.plate} ሚቀጥለው መነሻ ኪ.ሜ ${nextKm.calc} → *${nextKm.set}* ተቀይሯል\n📝 ${nextKm.reason}`));
@@ -2195,9 +2243,9 @@ async function handle(req, env, ctx) {
     const c = JSON.parse(row.calc), v = await env.DB.prepare('SELECT next_start_km FROM vehicles WHERE plate=?').bind(row.plate).first();
     const newer = await env.DB.prepare(`SELECT 1 x FROM shifts WHERE plate=? AND status='APPROVED' AND ${SHIFT_AFTER} AND id<>? LIMIT 1`).bind(row.plate, row.shift_date, row.shift_date, row.shift_no || 1, row.id).first();
     const photos = (await env.DB.prepare('SELECT kind FROM photos WHERE shift_id=?').bind(row.id).all()).results.map(x => x.kind);
-    const chg = (await env.DB.prepare('SELECT kwh,cost,soc_from,soc_to,location FROM charging WHERE shift_id=?').bind(row.id).all()).results;
+    const chg = (await env.DB.prepare('SELECT id,kwh,cost,soc_from,soc_to,chg_km,location,note,by_actor FROM charging WHERE shift_id=? OR (plate=? AND chg_date=? AND shift_id IS NULL) ORDER BY id').bind(row.id, row.plate, row.shift_date).all()).results;
     return J({ ...rowOut(row), photos, alerts: alertReasons(c, cfg, row.status === 'PENDING' && !newer ? v?.next_start_km : null, false), report: report(c, row.status), rejFields: REJ_FIELDS,
-      chargesSaved: chg.map(x => ({ kwh: x.kwh, cost: x.cost, socFrom: x.soc_from, socTo: x.soc_to, location: x.location })) });
+      chargesSaved: chg.map(x => ({ id: x.id, kwh: x.kwh, cost: x.cost, socFrom: x.soc_from, socTo: x.soc_to, km: num(x.chg_km), location: x.location, note: x.note || '', by: x.by_actor || '' })) });
   }
   const rej = path.match(/^\/api\/shifts\/(\d+)\/reject$/);
   if (rej && m === 'POST') {
@@ -2301,37 +2349,134 @@ async function handle(req, env, ctx) {
     return J({ ok: true });
   }
 
-  // EV charging log
+  // EV charging log & Charging Department Workspace
   if (path === '/api/charging' && m === 'GET') {
     if (!staff && !me.plate) return J([]);
     const plate = staff ? String(url.searchParams.get('plate') || '').toUpperCase() : me.plate;
     const days = Math.min(365, Math.max(1, num(url.searchParams.get('days')) || 30));
-    const from = addisDate(days - 1);
+    const from = addisDate(days - 1), today = addisDate(0);
     const rows = (await (plate ? env.DB.prepare('SELECT * FROM charging WHERE plate=? AND chg_date>=? ORDER BY chg_date DESC, id DESC').bind(plate, from) : env.DB.prepare('SELECT * FROM charging WHERE chg_date>=? ORDER BY chg_date DESC, id DESC').bind(from)).all()).results;
-    return J(rows.map(r => ({ id: r.id, plate: r.plate, date: r.chg_date, kwh: r.kwh, cost: r.cost, socFrom: r.soc_from, socTo: r.soc_to, odoKm: r.odo_km, location: r.location, by: r.by_actor })));
+    const mapped = rows.map(r => ({ id: r.id, plate: r.plate, date: r.chg_date, kwh: r.kwh, cost: r.cost, socFrom: r.soc_from, socTo: r.soc_to, odoKm: r.odo_km, km: num(r.chg_km), location: r.location, note: r.note || '', shiftId: r.shift_id, by: r.by_actor }));
+    if (url.searchParams.get('meta') !== '1') return J(mapped);
+    // Live vehicle charging queue & KPIs for Charging Department
+    const vs = (await env.DB.prepare('SELECT plate,driver,mode,next_start_km,status FROM vehicles ORDER BY plate').all()).results;
+    const recentShifts = (await env.DB.prepare("SELECT id,plate,shift_date,shift_no,status,n_batt,calc FROM shifts WHERE shift_date>=? AND status IN ('PENDING','APPROVED') ORDER BY shift_date DESC, shift_no DESC, id DESC").bind(addisDate(7)).all()).results;
+    const latestShiftByPlate = {};
+    for (const s of recentShifts) {
+      if (!latestShiftByPlate[s.plate]) latestShiftByPlate[s.plate] = s;
+    }
+    const todayRows = mapped.filter(r => r.date === today);
+    const chgTodayByPlate = {};
+    for (const r of todayRows) {
+      const b = (chgTodayByPlate[r.plate] ||= { count: 0, kwh: 0, cost: 0, maxSocTo: null });
+      b.count++; b.kwh = r2(b.kwh + num(r.kwh)); b.cost = r2(b.cost + num(r.cost));
+      if (r.socTo != null && (b.maxSocTo == null || r.socTo > b.maxSocTo)) b.maxSocTo = r.socTo;
+    }
+    const queue = vs.map(v => {
+      const sh = latestShiftByPlate[v.plate] || null;
+      let driverName = v.driver || '', shEndKm = num(v.next_start_km);
+      if (sh && sh.calc) {
+        try {
+          const parsed = JSON.parse(sh.calc);
+          driverName = parsed.driverName || driverName;
+          if (parsed.endKm != null) shEndKm = num(parsed.endKm);
+        } catch {}
+      }
+      const alertPct = battCfgForMode(cfg, v.mode).alertPct;
+      const batt = sh ? num(sh.n_batt) : null;
+      const chgToday = chgTodayByPlate[v.plate] || { count: 0, kwh: 0, cost: 0, maxSocTo: null };
+      const effectiveSoc = chgToday.maxSocTo != null && (!sh || sh.shift_date <= today) ? chgToday.maxSocTo : batt;
+      const lowBattery = effectiveSoc != null && effectiveSoc < alertPct;
+      const pendingNeedCharge = !!(sh && sh.status === 'PENDING' && sh.shift_date === today && chgToday.count === 0);
+      return {
+        plate: v.plate,
+        driver: driverName,
+        mode: v.mode || 'any',
+        vehicleStatus: v.status || 'ok',
+        lastShiftDate: sh ? sh.shift_date : '',
+        shiftNo: sh ? (sh.shift_no || 1) : 1,
+        shiftStatus: sh ? sh.status : '',
+        shiftId: sh ? sh.id : null,
+        batterySoc: batt,
+        effectiveSoc,
+        alertPct,
+        lowBattery,
+        pendingNeedCharge,
+        needsCharge: lowBattery || pendingNeedCharge,
+        endKm: shEndKm,
+        nextStartKm: num(v.next_start_km),
+        chargedTodayCount: chgToday.count,
+        chargedTodayKwh: chgToday.kwh,
+        chargedTodayCost: chgToday.cost,
+      };
+    });
+    const byStation = {};
+    for (const r of mapped) {
+      const st = r.location || 'Other';
+      const b = (byStation[st] ||= { station: st, count: 0, kwh: 0, cost: 0 });
+      b.count++; b.kwh = r2(b.kwh + num(r.kwh)); b.cost = r2(b.cost + num(r.cost));
+    }
+    const periodKwh = r2(mapped.reduce((a, r) => a + num(r.kwh), 0));
+    const periodCost = r2(mapped.reduce((a, r) => a + num(r.cost), 0));
+    const todayKwh = r2(todayRows.reduce((a, r) => a + num(r.kwh), 0));
+    const todayCost = r2(todayRows.reduce((a, r) => a + num(r.cost), 0));
+    const todayKm = r1(todayRows.reduce((a, r) => a + num(r.km), 0));
+    return J({
+      today,
+      rows: mapped,
+      queue,
+      kpi: {
+        todayCount: todayRows.length,
+        todayKwh,
+        todayCost,
+        todayKm,
+        periodDays: days,
+        periodCount: mapped.length,
+        periodKwh,
+        periodCost,
+        avgRateEtb: periodKwh > 0 ? r2(periodCost / periodKwh) : num(cfg.chargeRateEtb ?? DEF.chargeRateEtb),
+        needsChargeCount: queue.filter(q => q.needsCharge).length,
+        lowBatteryCount: queue.filter(q => q.lowBattery).length,
+        pendingShiftCount: queue.filter(q => q.pendingNeedCharge).length,
+        byStation: Object.values(byStation).sort((a, b) => b.kwh - a.kwh),
+      },
+    });
   }
   if (path === '/api/charging' && m === 'POST') {
     if (!can('charging')) return deny();
-    const plate = String(body.plate || '').toUpperCase(), kwh = num(body.kwh), cost = num(body.cost);
+    const plate = String(body.plate || '').toUpperCase(), kwh = num(body.kwh);
+    const rate = num(cfg.chargeRateEtb ?? DEF.chargeRateEtb);
+    const cost = String(body.cost ?? '').trim() === '' && kwh > 0 && rate > 0 ? r2(kwh * rate) : num(body.cost);
     const date = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? body.date : addisDate(0);
     if (!(await env.DB.prepare('SELECT 1 x FROM vehicles WHERE plate=?').bind(plate).first())) return fail('Unknown vehicle');
     if (!(kwh > 0) || kwh > 300) return fail('kWh must be between 0 and 300');
     if (cost < 0) return fail('Cost cannot be negative');
+    if (num(cfg.chargeMaxEtb) > 0 && cost > num(cfg.chargeMaxEtb)) return fail(`⚡ የአንድ ጊዜ ቻርጅ ወጪ ከገደቡ (${cfg.chargeMaxEtb} ብር) በላይ ነው (Charge cost exceeds max limit ${cfg.chargeMaxEtb} ETB)`);
     if (date > addisDate(0)) return fail('Date cannot be in the future');
     { const g = await plateGrp(env, plate); if (g && await isClosed(env, date, g)) return fail(closedMsg(date, g), 409); }
     const soc = x => (String(x ?? '') === '' ? null : Math.min(100, Math.max(0, num(x))));
     const odo = String(body.odoKm ?? '') === '' ? null : num(body.odoKm);
-    const res = await env.DB.prepare('INSERT INTO charging(plate,chg_date,kwh,cost,soc_from,soc_to,odo_km,location,by_actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
-      .bind(plate, date, kwh, cost, soc(body.socFrom), soc(body.socTo), odo, String(body.location || 'M8trix').slice(0, 60), actor, now()).run();
-    await audit(env, actor, 'CHARGE', null, `${plate} ${date} ${kwh}kWh ${cost}ETB`);
-    return J({ ok: true, id: res.meta.last_row_id });
+    const chgKm = Math.max(0, r1(num(body.km ?? body.chgKm ?? 0)));
+    const note = String(body.note || '').trim().slice(0, 120);
+    const defStation = (Array.isArray(cfg.chargeStations) && cfg.chargeStations[0]) || 'M8trix';
+    const station = String(body.location || defStation).slice(0, 60);
+    const res = await env.DB.prepare('INSERT INTO charging(plate,chg_date,kwh,cost,soc_from,soc_to,odo_km,chg_km,location,note,by_actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(plate, date, kwh, cost, soc(body.socFrom), soc(body.socTo), odo, chgKm, station, note, actor, now()).run();
+    await audit(env, actor, 'CHARGE', null, `${plate} ${date} ${kwh}kWh ${cost}ETB${chgKm ? ` +${chgKm}KM` : ''} @${station}${note ? ` (${note})` : ''}`);
+    return J({ ok: true, id: res.meta.last_row_id, cost, km: chgKm });
   }
   const chgDel = path.match(/^\/api\/charging\/(\d+)$/);
   if (chgDel && m === 'DELETE') {
-    if (!admin) return fail('Forbidden', 403);
-    { const c = await env.DB.prepare('SELECT plate,chg_date FROM charging WHERE id=?').bind(+chgDel[1]).first(), g = c && await plateGrp(env, c.plate); if (g && await isClosed(env, c.chg_date, g)) return fail(closedMsg(c.chg_date, g), 409); }
+    if (!admin && !can('charging')) return fail('Forbidden', 403);
+    const c = await env.DB.prepare('SELECT plate,chg_date,shift_id FROM charging WHERE id=?').bind(+chgDel[1]).first();
+    if (!c) return fail('Not found', 404);
+    if (!admin && c.shift_id) {
+      const sh = await env.DB.prepare('SELECT status FROM shifts WHERE id=?').bind(c.shift_id).first();
+      if (sh && sh.status === 'APPROVED') return fail('ይህ ቻርጅ ከጸደቀ ሪፖርት ጋር ተያይዟል — Super Admin ብቻ ያጠፋዋል (Linked to an approved shift; only Super Admin can delete)', 403);
+    }
+    { const g = await plateGrp(env, c.plate); if (g && await isClosed(env, c.chg_date, g)) return fail(closedMsg(c.chg_date, g), 409); }
     await env.DB.prepare('DELETE FROM charging WHERE id=?').bind(+chgDel[1]).run();
-    await audit(env, actor, 'CHARGE_DELETE', null, String(chgDel[1]));
+    await audit(env, actor, 'CHARGE_DELETE', null, `${c.plate} ${c.chg_date} #${chgDel[1]}`);
     return J({ ok: true });
   }
 
@@ -3657,8 +3802,9 @@ async function handle(req, env, ctx) {
     const outDid = shiftNo > 1 ? (prevIn?.driver_id ?? await driverFor(env, plate, today, shiftNo - 1)) : null;
     const outName = outDid != null && outDid !== myDriver.id ? (await env.DB.prepare('SELECT name FROM drivers WHERE id=?').bind(outDid).first())?.name || '' : '';
     const prevRep = await env.DB.prepare("SELECT calc FROM shifts WHERE plate=? AND shift_date=? AND shift_no<? AND status IN ('PENDING','APPROVED') ORDER BY shift_no DESC LIMIT 1").bind(plate, today, shiftNo).first();
+    const I_ITEMS = inspItemsOf(cfg);
     return J({ plate, date: today, shiftNo, shifts: shiftDefs(cfg, grp), inspection: inspOut(insp), handoverFrom: outName, sameDriver: outDid === myDriver.id,
-      expectedKm: prevRep ? num(JSON.parse(prevRep.calc).endKm) : num(v.next_start_km), items: Object.fromEntries(Object.entries(INSP_ITEMS).map(([k, x]) => [k, { l: x.l, serious: !!x.serious }])), vehicleStatus: v.status || 'ok' });
+      expectedKm: prevRep ? num(JSON.parse(prevRep.calc).endKm) : num(v.next_start_km), items: Object.fromEntries(Object.entries(I_ITEMS).map(([k, x]) => [k, { l: x.l, serious: !!x.serious, prop: !!x.prop }])), vehicleStatus: v.status || 'ok' });
   }
   if (path === '/api/inspections' && m === 'POST') {
     if (staff) return deny();
@@ -3676,8 +3822,9 @@ async function handle(req, env, ctx) {
     const km = num(body.km), batt = num(body.battery), items = body.items && typeof body.items === 'object' ? body.items : {};
     if (!(km > 0)) return fail('የኦዶሜትሩን ኪ.ሜ ያስገቡ (Enter the odometer KM)');
     if (String(body.battery ?? '') === '' || batt < 0 || batt > 100) return fail('የባትሪውን መጠን ያስገቡ (Battery %)');
+    const I_ITEMS = inspItemsOf(cfg);
     const res = {};
-    for (const k of Object.keys(INSP_ITEMS)) { const x = items[k]; if (!['ok', 'bad', 'missing'].includes(x)) return fail(`📋 ${INSP_ITEMS[k].l} — ✅ ወይም ⚠️ ይምረጡ`); res[k] = x; }
+    for (const k of Object.keys(I_ITEMS)) { const x = items[k]; if (!['ok', 'bad', 'missing'].includes(x)) return fail(`📋 ${I_ITEMS[k].l} — ✅ ወይም ⚠️ ይምረጡ`); res[k] = x; }
     const note = String(body.note || '').trim().slice(0, 500), bad = Object.keys(res).filter(k => res[k] !== 'ok');
     if (bad.length && note.length < 3) return fail('ችግሩን በአጭሩ ይጻፉ (Write what is wrong)');
     const ex = await env.DB.prepare('SELECT * FROM inspections WHERE plate=? AND idate=? AND shift_no=?').bind(plate, today, shiftNo).first();
@@ -3690,19 +3837,19 @@ async function handle(req, env, ctx) {
     const lateMin = planned && late > grace ? late : 0, otMin = planned && outDid != null && late > grace ? late : 0;
     const prevRep = await env.DB.prepare("SELECT calc FROM shifts WHERE plate=? AND shift_date=? AND shift_no<? AND status IN ('PENDING','APPROVED') ORDER BY shift_no DESC LIMIT 1").bind(plate, today, shiftNo).first();
     const kmExp = prevRep ? num(JSON.parse(prevRep.calc).endKm) : num(v.next_start_km), kmOff = Math.abs(km - kmExp) > 1;
-    const serious = bad.some(k => INSP_ITEMS[k].serious), status = serious ? 'held' : (bad.length || kmOff) ? 'issue' : 'ok';
+    const serious = bad.some(k => I_ITEMS[k]?.serious), status = serious ? 'held' : (bad.length || kmOff) ? 'issue' : 'ok';
     const g = cleanGeo(body.geo); if (g) env._ri.geo = `${g.lat},${g.lng}`;
     const vals = [plate, today, shiftNo, myDriver.id, outDid, km, kmExp, batt, JSON.stringify(res), note, serious ? 1 : 0, status, lateMin, otMin, g?.lat ?? null, g?.lng ?? null, now()];
     const st = [ex ? env.DB.prepare('UPDATE inspections SET plate=?,idate=?,shift_no=?,driver_id=?,out_driver_id=?,km=?,km_expected=?,battery=?,items=?,note=?,serious=?,status=?,late_min=?,ot_min=?,lat=?,lng=?,at=? WHERE id=?').bind(...vals, ex.id)
       : env.DB.prepare('INSERT INTO inspections(plate,idate,shift_no,driver_id,out_driver_id,km,km_expected,battery,items,note,serious,status,late_min,ot_min,lat,lng,at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(...vals)];
-    if (serious) st.push(env.DB.prepare("UPDATE vehicles SET status='hold', status_since=?, repair_until='', status_note=? WHERE plate=?").bind(today, `📋 ${bad.filter(k => INSP_ITEMS[k].serious).map(k => INSP_ITEMS[k].l).join(', ')}`.slice(0, 120), plate));
-    const lbl = bad.map(k => `${INSP_ITEMS[k].l}${res[k] === 'missing' ? ' (የለም)' : ''}`).join(', ');
+    if (serious) st.push(env.DB.prepare("UPDATE vehicles SET status='hold', status_since=?, repair_until='', status_note=? WHERE plate=?").bind(today, `📋 ${bad.filter(k => I_ITEMS[k]?.serious).map(k => I_ITEMS[k].l).join(', ')}`.slice(0, 120), plate));
+    const lbl = bad.map(k => `${I_ITEMS[k]?.l || k}${res[k] === 'missing' ? ' (የለም)' : ''}`).join(', ');
     st.push(auditStmt(env, actor, 'INSPECTION', null, `${plate} ${sd.name} ${status}${lbl ? ' · ' + lbl : ''}${kmOff ? ` · KM ${km} vs ${kmExp}` : ''}${lateMin ? ` · late ${lateMin} min` : ''}`.slice(0, 900)));
     const r0 = await env.DB.batch(st), id = ex ? ex.id : r0[0].meta.last_row_id;
     const outName = outDid != null ? (await env.DB.prepare('SELECT name FROM drivers WHERE id=?').bind(outDid).first())?.name || '' : '';
     const head = `📋 *${plate} · ${sd.name}* — ${myDriver.name}${outName ? ` ከ${outName} ተረከበ` : ''}`;
     if (status !== 'ok') bg(notify(env, cfg, 'inspection', [head, lbl ? `⚠️ ${lbl}` : '', note ? `📝 ${note}` : '', kmOff ? `🔢 ኪ.ሜ ${km} — የሚጠበቀው ${kmExp}` : '', serious ? '⏸ መኪናው ፍሊት እስኪወስን ቆሟል — ✅ ወደ ስራ ወይም 🔧 ጥገና ብለው ይወስኑ' : ''].filter(Boolean).join('\n')));
-    if (serious) bg(notify(env, cfg, 'vehicleHold', `⏸ ${plate} በፍተሻ ቆሟል (${bad.filter(k => INSP_ITEMS[k].serious).map(k => INSP_ITEMS[k].l).join(', ')}) — ${myDriver.name}`));
+    if (serious) bg(notify(env, cfg, 'vehicleHold', `⏸ ${plate} በፍተሻ ቆሟል (${bad.filter(k => I_ITEMS[k]?.serious).map(k => I_ITEMS[k].l).join(', ')}) — ${myDriver.name}`));
     if (outDid != null && (bad.length || kmOff)) bg(notifyDriver(env, outDid, 'handover', `🔁 *የመረካከቢያ ፍተሻ* — ${plate}\n${myDriver.name} ተረክቦ የሚከተለውን መዝግቧል፦ ${lbl || ''}${kmOff ? ` · ኪ.ሜ ${km}` : ''}${note ? `\n📝 ${note}` : ''}`));
     if (otMin > 0) bg(notifyDriver(env, outDid, 'handover', `⏰ ${plate}፦ ተረኛው ${otMin} ደቂቃ ዘግይቶ ደርሷል — ${otMin} ደቂቃ ትርፍ ሰዓት ተመዝግቦልዎታል።`));
     if (lateMin > 0) bg(notify(env, cfg, 'inspection', `⏰ ${myDriver.name} (${plate} · ${sd.name}) ${lateMin} ደቂቃ ዘግይቶ ጀመረ${outName ? ` — ${outName} ትርፍ ሰዓት ሰርቷል` : ''}`));
@@ -3711,9 +3858,10 @@ async function handle(req, env, ctx) {
   if (path === '/api/inspections' && m === 'GET') {
     if (!staff || !canAny('opsDash', 'incidents', 'approve', 'photos', 'vehicles')) return deny();
     const date = isDay(url.searchParams.get('date') || '') ? url.searchParams.get('date') : addisDate(0);
+    const I_ITEMS = inspItemsOf(cfg);
     const rows = (await env.DB.prepare(`SELECT i.*, d.name dname, o.name oname, v.mode vmode, (SELECT group_concat(side) FROM inspection_photos p WHERE p.insp_id=i.id) photos FROM inspections i
       LEFT JOIN drivers d ON d.id=i.driver_id LEFT JOIN drivers o ON o.id=i.out_driver_id LEFT JOIN vehicles v ON v.plate=i.plate WHERE i.idate=? ORDER BY i.plate, i.shift_no`).bind(date).all()).results;
-    return J({ date, items: Object.fromEntries(Object.entries(INSP_ITEMS).map(([k, x]) => [k, x.l])), list: rows.map(r => ({ ...inspOut(r), shiftName: shiftDef(cfg, r.vmode === 'route' ? 'route' : 'cabby', r.shift_no)?.name || '', driver: r.dname || '', outDriver: r.oname || '', photos: r.photos ? String(r.photos).split(',') : [] })),
+    return J({ date, items: Object.fromEntries(Object.entries(I_ITEMS).map(([k, x]) => [k, x.l])), list: rows.map(r => ({ ...inspOut(r), shiftName: shiftDef(cfg, r.vmode === 'route' ? 'route' : 'cabby', r.shift_no)?.name || '', driver: r.dname || '', outDriver: r.oname || '', photos: r.photos ? String(r.photos).split(',') : [] })),
       missing: await inspMissing(env, cfg, date), graceMin: num(cfg.handoverGraceMin) });
   }
   const inspPh = path.match(/^\/api\/inspections\/(\d+)\/photo$/);
@@ -3890,12 +4038,69 @@ async function handle(req, env, ctx) {
 
   // ---- Admin only ----
   if (path === '/api/admin/audit' && m === 'GET' && can('audit')) {
-    return J((await env.DB.prepare('SELECT ts,actor,action,shift_id,detail,dev,dinfo,ip,city,geo FROM audit ORDER BY id DESC LIMIT 300').all()).results.map(a => ({ ...a, devId: devShort(a.dev) })));
+    const fActor = String(url.searchParams.get('actor') || '').trim().toLowerCase();
+    const fAction = String(url.searchParams.get('action') || '').trim().toUpperCase();
+    const fQ = String(url.searchParams.get('q') || '').trim().toLowerCase();
+    const lim = Math.min(1000, Math.max(50, Math.floor(num(url.searchParams.get('limit')) || 400)));
+    const rows = (await env.DB.prepare('SELECT ts,actor,action,shift_id,detail,dev,dinfo,ip,city,geo FROM audit ORDER BY id DESC LIMIT ?').bind(lim).all()).results.map(a => ({ ...a, devId: devShort(a.dev) }));
+    const filtered = rows.filter(a => {
+      if (fActor && String(a.actor || '').toLowerCase() !== fActor) return false;
+      if (fAction && String(a.action || '').toUpperCase() !== fAction) return false;
+      if (fQ && ![a.actor, a.action, a.detail, a.devId, a.dinfo, a.city, a.ip].some(v => String(v || '').toLowerCase().includes(fQ))) return false;
+      return true;
+    });
+    return J(filtered);
+  }
+  if (path === '/api/admin/debt-permit' && m === 'POST' && (admin || can('payments'))) {
+    const did = String(body.driverId || '').trim();
+    const drv = did ? await env.DB.prepare('SELECT id,name FROM drivers WHERE id=?').bind(+did).first() : null;
+    if (!drv) return fail('ሹፌሩ አልተገኘም (Unknown driver)', 404);
+    const n = { ...cfg, debtPermits: { ...(cfg.debtPermits || {}) } };
+    if (body.revoke) {
+      delete n.debtPermits[String(drv.id)];
+      await setKV(env, 'policy', JSON.stringify(n));
+      await audit(env, actor, 'DEBT_PERMIT', null, `Revoked debt grace permit for ${drv.name}`);
+      return J({ ok: true, permits: n.debtPermits });
+    }
+    const until = String(body.until || '').trim();
+    const note = String(body.note || '').trim().slice(0, 180);
+    if (!isDay(until) || until < addisDate(0)) return fail('የሚያበቃበትን ትክክለኛ ቀን ይምረጡ (Pick a valid future/today expiry date)');
+    if (note.length < 3) return fail('የክፍያ ስምምነቱን / ምክንያቱን ይጻፉ (Write the installment agreement or reason)');
+    n.debtPermits[String(drv.id)] = { until, note, by: actor, at: now() };
+    await setKV(env, 'policy', JSON.stringify(n));
+    await audit(env, actor, 'DEBT_PERMIT', null, `${drv.name} permitted until ${until}: ${note}`);
+    bg(notifyDriver(env, drv.id, 'payment', `🔓 *ጊዜያዊ የGate Pass ፈቃድ ተሰጥቶዎታል*\n• እስከ፦ *${until}*\n• ማስታወሻ፦ ${note}\n• 👔 በ${actor}`));
+    return J({ ok: true, permits: n.debtPermits });
   }
   if (path.startsWith('/api/admin/')) {
     if (!admin) return fail('Forbidden', 403);
-    if (path === '/api/admin/config' && m === 'GET') return J({ ...cfg, notify: Object.fromEntries(Object.keys(NOTIFY).map(t => [t, Object.fromEntries(NROLES.map(r => [r, notifyLevel(cfg, t, r)]))])),
-      _notifyTypes: Object.fromEntries(Object.entries(NOTIFY).map(([k, v]) => [k, v.l])), _channel: await channelOf(env), _rchannel: await rosterChannel(env), _tgLinked: !!(await env.DB.prepare("SELECT 1 x FROM tg_links WHERE who='a'").first()) });
+    if (path === '/api/admin/config' && m === 'GET') {
+      const hist = JSON.parse((await getKV(env, 'policy_history')) || '[]');
+      const bal = await balances(env, null);
+      const drvRows = (await env.DB.prepare('SELECT id,name,phone,active FROM drivers ORDER BY active DESC, name').all()).results;
+      const vehByDrv = Object.fromEntries((await env.DB.prepare('SELECT driver_id,plate FROM vehicles WHERE driver_id IS NOT NULL').all()).results.map(v => [String(v.driver_id), v.plate]));
+      const permits = cfg.debtPermits || {};
+      const debtors = drvRows.map(d => {
+        const b = bal[d.id] || ZERO_BAL;
+        const p = permits[String(d.id)] || null;
+        return { id: d.id, name: d.name, phone: d.phone, plate: vehByDrv[String(d.id)] || '', balance: Math.round(num(b.balance)), cashDebt: Math.round(num(b.cash?.balance)), penaltyDebt: Math.round(num(b.penalty?.balance)), locked: debtLocked(cfg, b, d.id), permit: p };
+      }).filter(d => d.balance > 0 || d.permit);
+      return J({
+        ...cfg,
+        chargeRateEtb: num(cfg.chargeRateEtb ?? DEF.chargeRateEtb),
+        chargeMaxEtb: num(cfg.chargeMaxEtb ?? DEF.chargeMaxEtb),
+        chargeStations: Array.isArray(cfg.chargeStations) && cfg.chargeStations.length ? cfg.chargeStations : DEF.chargeStations,
+        inspItems: Object.entries(inspItemsOf(cfg)).map(([id, x]) => ({ id, l: x.l, serious: !!x.serious, prop: !!x.prop })),
+        notify: Object.fromEntries(Object.keys(NOTIFY).map(t => [t, Object.fromEntries(NROLES.map(r => [r, notifyLevel(cfg, t, r)]))])),
+        _notifyTypes: Object.fromEntries(Object.entries(NOTIFY).map(([k, v]) => [k, v.l])),
+        _channel: await channelOf(env),
+        _rchannel: await rosterChannel(env),
+        _tgLinked: !!(await env.DB.prepare("SELECT 1 x FROM tg_links WHERE who='a'").first()),
+        _policyHistory: hist.map(h => ({ id: h.id, at: h.at, by: h.by })),
+        _debtors: debtors,
+        _allDrivers: drvRows.map(d => ({ id: d.id, name: d.name, plate: vehByDrv[String(d.id)] || '' })),
+      });
+    }
     if (path === '/api/admin/config' && m === 'PUT') {
       // Validate first so a bad PIN never leaves half the settings saved
       if (body.adminPin) {
@@ -3911,6 +4116,25 @@ async function handle(req, env, ctx) {
         n.expenseCats = cs;
       }
       n.overtimeRate = Math.max(0, num(n.overtimeRate));
+      n.chargeRateEtb = Math.max(0, r2(num(body.chargeRateEtb ?? n.chargeRateEtb ?? DEF.chargeRateEtb)));
+      n.chargeMaxEtb = Math.max(0, Math.round(num(body.chargeMaxEtb ?? n.chargeMaxEtb ?? DEF.chargeMaxEtb)));
+      if (Array.isArray(body.chargeStations)) {
+        const stList = body.chargeStations.map(s => String(s || '').trim().slice(0, 60)).filter(Boolean).slice(0, 30);
+        n.chargeStations = stList.length ? stList : DEF.chargeStations;
+      }
+      if (Array.isArray(body.inspItems)) {
+        const ii = body.inspItems.slice(0, 30).map((it, idx) => ({
+          id: String(it?.id || '').replace(/[^a-z0-9_]/gi, '').slice(0, 30) || `item_${idx + 1}`,
+          l: String(it?.l || '').trim().slice(0, 80),
+          serious: !!it?.serious,
+          prop: !!it?.prop,
+        })).filter(it => it.l);
+        if (!ii.length) return fail('📋 At least one inspection item is required');
+        n.inspItems = ii;
+      }
+      if (body.debtPermits && typeof body.debtPermits === 'object') {
+        n.debtPermits = body.debtPermits;
+      }
       if (Array.isArray(body.routes)) {
         const rs = body.routes.slice(0, 20).map((r, i) => ({ id: String(r.id || '').replace(/[^a-z0-9-]/gi, '').slice(0, 30) || 'route-' + (i + 1),
           name: String(r.name || '').trim().slice(0, 60), from: String(r.from || '').trim().slice(0, 30), mid: String(r.mid || '').trim().slice(0, 30), to: String(r.to || '').trim().slice(0, 30),
@@ -3995,6 +4219,12 @@ async function handle(req, env, ctx) {
         n.perms = np; permNote = ch.join(' ');
         if (ch.length) await audit(env, actor, 'PERMS_UPDATE', null, permNote.slice(0, 900));
       }
+      // Save previous config snapshot (keep last 5)
+      try {
+        const hist = JSON.parse((await getKV(env, 'policy_history')) || '[]');
+        hist.unshift({ id: Date.now().toString(36), at: now(), by: actor, policy: cfg });
+        await setKV(env, 'policy_history', JSON.stringify(hist.slice(0, 5)));
+      } catch {}
       await setKV(env, 'policy', JSON.stringify(n));
       if (body.adminPin) {
         await setKV(env, 'admin_pin', await hashPin(body.adminPin));
@@ -4003,6 +4233,82 @@ async function handle(req, env, ctx) {
       }
       await audit(env, actor, 'CONFIG_UPDATE', null, body.adminPin ? 'incl. admin PIN change' : '');
       return J({ ok: true, signedOut: !!body.adminPin });
+    }
+    if (path === '/api/admin/config-rollback' && m === 'POST') {
+      const id = String(body.id || '').trim();
+      const hist = JSON.parse((await getKV(env, 'policy_history')) || '[]');
+      const snap = hist.find(h => h.id === id);
+      if (!snap || !snap.policy) return fail('Snapshot not found (የተመረጠው የቅንብር ታሪክ አልተገኘም)', 404);
+      const nextHist = [{ id: Date.now().toString(36), at: now(), by: actor + ' (before rollback)', policy: cfg }, ...hist.filter(h => h.id !== id)].slice(0, 5);
+      await setKV(env, 'policy_history', JSON.stringify(nextHist));
+      await setKV(env, 'policy', JSON.stringify({ ...DEF, ...snap.policy }));
+      await audit(env, actor, 'CONFIG_ROLLBACK', null, `Restored snapshot ${snap.id} (${snap.at})`);
+      return J({ ok: true });
+    }
+    if (path === '/api/admin/backup-restore' && m === 'POST') {
+      const bk = body.backup;
+      const mode = ['verify', 'policy', 'full'].includes(body.mode) ? body.mode : 'verify';
+      if (!bk || typeof bk !== 'object' || (!bk.policy && !Array.isArray(bk.vehicles) && !Array.isArray(bk.shifts))) {
+        return fail('ትክክለኛ የETEV Backup JSON ፋይል አይደለም (Invalid backup JSON format)');
+      }
+      const counts = {
+        vehicles: Array.isArray(bk.vehicles) ? bk.vehicles.length : 0,
+        drivers: Array.isArray(bk.drivers) ? bk.drivers.length : 0,
+        managers: Array.isArray(bk.managers) ? bk.managers.length : 0,
+        shifts: Array.isArray(bk.shifts) ? bk.shifts.length : 0,
+        payments: Array.isArray(bk.payments) ? bk.payments.length : 0,
+        charging: Array.isArray(bk.charging) ? bk.charging.length : 0,
+        expenses: Array.isArray(bk.expenses) ? bk.expenses.length : 0,
+      };
+      if (mode === 'verify') {
+        return J({ ok: true, mode: 'verify', app: bk.app || 'ETEV Fleet Portal', version: bk.version || '?', exportedAt: bk.exportedAt || '', hasPolicy: !!(bk.policy && Object.keys(bk.policy).length), counts });
+      }
+      if (bk.policy && typeof bk.policy === 'object') {
+        const hist = JSON.parse((await getKV(env, 'policy_history')) || '[]');
+        hist.unshift({ id: Date.now().toString(36), at: now(), by: actor + ' (before backup restore)', policy: cfg });
+        await setKV(env, 'policy_history', JSON.stringify(hist.slice(0, 5)));
+        await setKV(env, 'policy', JSON.stringify({ ...DEF, ...bk.policy }));
+      }
+      let restoredRows = 0;
+      if (mode === 'full') {
+        if (Array.isArray(bk.expenses)) {
+          for (const e of bk.expenses.slice(0, 1000)) {
+            if (!e.id || !e.exp_date) continue;
+            const r = await env.DB.prepare('INSERT OR IGNORE INTO expenses(id,plate,exp_date,category,amount,months,ref,note,by_actor,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
+              .bind(e.id, e.plate || '', e.exp_date, e.category || 'other', num(e.amount), Math.max(1, num(e.months) || 1), e.ref || '', e.note || '', e.by_actor || actor, e.created_at || now()).run();
+            restoredRows += num(r.meta?.changes);
+          }
+        }
+        if (Array.isArray(bk.payments)) {
+          for (const p of bk.payments.slice(0, 1000)) {
+            if (!p.id || !p.pay_date) continue;
+            const r = await env.DB.prepare('INSERT OR IGNORE INTO payments(id,plate,pay_date,amount,kind,ref,note,by_actor,created_at,driver_id) VALUES(?,?,?,?,?,?,?,?,?,?)')
+              .bind(p.id, p.plate || '', p.pay_date, num(p.amount), p.kind || 'cash', p.ref || '', p.note || '', p.by_actor || actor, p.created_at || now(), p.driver_id ?? null).run();
+            restoredRows += num(r.meta?.changes);
+          }
+        }
+        if (Array.isArray(bk.charging)) {
+          for (const c of bk.charging.slice(0, 1000)) {
+            if (!c.id || !c.chg_date) continue;
+            const r = await env.DB.prepare('INSERT OR IGNORE INTO charging(id,plate,chg_date,kwh,cost,soc_from,soc_to,odo_km,location,by_actor,created_at,shift_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+              .bind(c.id, c.plate || '', c.chg_date, num(c.kwh), num(c.cost), c.soc_from ?? null, c.soc_to ?? null, c.odo_km ?? null, c.location || '', c.by_actor || actor, c.created_at || now(), c.shift_id ?? null).run();
+            restoredRows += num(r.meta?.changes);
+          }
+        }
+      }
+      await audit(env, actor, 'BACKUP_RESTORE', null, `mode=${mode} exportedAt=${bk.exportedAt || '?'} restoredRows=${restoredRows}`);
+      return J({ ok: true, mode, counts, restoredRows });
+    }
+    if (path === '/api/admin/force-logout' && m === 'POST') {
+      const nextAdminVer = num(await getKV(env, 'admin_ver')) + 1;
+      await setKV(env, 'admin_ver', nextAdminVer);
+      await env.DB.batch([
+        env.DB.prepare('UPDATE managers SET ver=ver+1'),
+        env.DB.prepare('UPDATE drivers SET pin_ver=pin_ver+1'),
+        auditStmt(env, actor, 'FORCE_LOGOUT_ALL', null, 'Signed out all active driver, manager, fleet, finance & other admin sessions'),
+      ]);
+      const freshToken = await signToken(env, { role: 'admin', v: nextAdminVer });
+      return J({ ok: true, token: freshToken });
     }
     if ((path === '/api/admin/managers' || path === '/api/admin/users') && m === 'GET') {
       const { results } = await env.DB.prepare('SELECT id,name,role,active,created_at FROM managers ORDER BY active DESC, name').all();
@@ -4014,7 +4320,7 @@ async function handle(req, env, ctx) {
       for (const g of list) {
         const name = String(g.name || '').trim();
         if (!name) return fail('Each manager needs a name');
-        if (g.role != null && !ROLES.includes(g.role)) return fail('Role must be manager, fleet or finance');
+        if (g.role != null && !ROLES.includes(g.role)) return fail('Role must be manager, fleet, charging or finance');
         if (g.pin) {
           if (!pinStaff(g.pin)) return fail(`PIN for ${name} must be 6-12 digits`);
           if (seen.has(String(g.pin))) return fail('Two managers cannot share a PIN');

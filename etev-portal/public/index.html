@@ -494,21 +494,84 @@ input:disabled,select:disabled{background:#1e293b!important;color:#64748b!import
    <div class="overflow-x-auto"><table class="w-full"><thead class="text-slate-400 text-left"><tr><th class="py-1">Date</th><th>Vehicle</th><th>Category</th><th>Amount</th><th>Covers</th><th>Receipt</th><th>By</th><th></th></tr></thead><tbody id="xRows"></tbody></table></div>
   </section>
 
-  <!-- EV CHARGING LOG (staff) -->
-  <section id="chg" data-v="chg" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-xs">
-   <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-bold text-sm text-yellow-300">⚡ Charging Log (የቻርጅ መዝገብ)</h2><span class="text-slate-400">Last 30 days</span></div>
-   <div id="chForm" class="space-y-3"><div class="grid grid-cols-2 md:grid-cols-8 gap-2">
-    <label class="block"><span class="text-slate-400">Vehicle</span><select id="chPlate" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></select></label>
-    <label class="block"><span class="text-slate-400">Date</span><input id="chDate" type="date" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
-    <label class="block"><span class="text-slate-400">kWh</span><input id="chKwh" type="number" step="0.1" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
-    <label class="block"><span class="text-slate-400">Cost (ETB)</span><input id="chCost" type="number" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
-    <label class="block"><span class="text-slate-400">Battery from %</span><input id="chFrom" type="number" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
-    <label class="block"><span class="text-slate-400">Battery to %</span><input id="chTo" type="number" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
-    <label class="block"><span class="text-slate-400">Odometer KM</span><input id="chOdo" type="number" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
-    <label class="block"><span class="text-slate-400">Location</span><input id="chLoc" value="M8trix" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>
+  <!-- EV CHARGING DEPARTMENT WORKSPACE (staff) -->
+  <section id="chg" data-v="chg" class="hidden bg-slate-900 border border-yellow-800/60 rounded-2xl p-4 space-y-4 text-xs">
+   <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+    <div>
+     <h2 class="font-bold text-sm text-yellow-300 flex items-center gap-2">
+      <span>⚡ የቻርጅ ዲፓርትመንት ማዕከል (EV Charging Department)</span>
+      <span id="chgTariffHint" class="text-[11px] text-emerald-300 font-normal px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/60"></span>
+     </h2>
+     <p class="text-[11px] text-slate-400 mt-0.5">የመኪኖች የዕለት ቻርጅ መመዝገቢያ፣ ዝቅተኛ ባትሪ ያላቸው መኪኖች ክትትል እና ከፈረቃ ማጽደቂያ (Shift Review) ጋር በቀጥታ የተሳሰረ</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-1.5">
+     <select id="chgDaysSel" onchange="loadCharges()" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+      <option value="7">Last 7 days (7 ቀን)</option>
+      <option value="30" selected>Last 30 days (30 ቀን)</option>
+      <option value="90">Last 90 days (90 ቀን)</option>
+     </select>
+     <button type="button" onclick="loadCharges()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold">↻ አድስ</button>
+     <button type="button" onclick="exportChargingCsv()" class="px-2.5 py-1.5 rounded-lg bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100 font-semibold">📥 CSV</button>
+    </div>
    </div>
-   <button onclick="saveCharge()" class="px-4 py-2 rounded-xl bg-yellow-600 font-bold">⚡ Save charging session</button></div>
-   <div class="overflow-x-auto"><table class="w-full"><thead class="text-slate-400 text-left"><tr><th>Date</th><th>Vehicle</th><th>kWh</th><th>Cost</th><th>Battery</th><th>Odometer</th><th>Where</th><th>By</th><th></th></tr></thead><tbody id="chRows"></tbody></table></div>
+
+   <datalist id="chgStationList"></datalist>
+
+   <!-- KPI STRIP -->
+   <div id="chgKpiStrip" class="grid grid-cols-2 md:grid-cols-5 gap-2"></div>
+
+   <!-- LIVE VEHICLE CHARGING QUEUE -->
+   <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 space-y-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+     <div class="font-bold text-amber-300 flex items-center gap-1.5">
+      <span>🔋 ቻርጅ የሚፈልጉ እና የዛሬ የፈረቃ መኪኖች (Live Charging Queue)</span>
+      <span id="chgQueueCountBadge" class="px-2 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-200 text-[10px] font-mono">0</span>
+     </div>
+     <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
+      <input id="chgShowAllVeh" type="checkbox" onchange="renderChgQueue()" class="rounded">
+      <span>ሁሉንም መኪኖች አሳይ (Show all vehicles)</span>
+     </label>
+    </div>
+    <div id="chgQueueBox" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+   </div>
+
+   <!-- CHARGING ENTRY FORM -->
+   <div id="chForm" class="bg-slate-950 border border-yellow-800/50 rounded-xl p-3 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+     <b class="text-yellow-300">➕ አዲስ የቻርጅ ክፍለ-ጊዜ መዝግብ (Record Charging Session)</b>
+     <span id="chSelectedHint" class="text-[11px] text-cyan-300"></span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+     <label class="block"><span class="text-slate-400">መኪና (Vehicle)</span><select id="chPlate" onchange="onChPlateChange(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1 font-bold"></select></label>
+     <label class="block"><span class="text-slate-400">ቀን (Date)</span><input id="chDate" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1"></label>
+     <label class="block"><span class="text-yellow-300 font-semibold">⚡ የተሞላው kWh *</span><input id="chKwh" type="number" step="0.1" placeholder="e.g. 42.5" oninput="onChgKwhInput(this.value)" class="w-full bg-slate-900 border border-yellow-700/80 rounded-lg px-2 py-1.5 mt-1 font-mono"></label>
+     <label class="block"><span class="text-slate-400">ወጪ ብር (Cost ETB)</span><input id="chCost" type="number" step="0.01" placeholder="Auto from tariff" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1 font-mono"></label>
+     <label class="block"><span class="text-slate-400">ጣቢያ (Station)</span><input id="chLoc" list="chgStationList" value="M8trix" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1"></label>
+     <label class="block"><span class="text-slate-400">ባትሪ ከ % (From SOC)</span><input id="chFrom" type="number" min="0" max="100" placeholder="e.g. 18" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1 font-mono"></label>
+     <label class="block"><span class="text-slate-400">ባትሪ ወደ % (To SOC)</span><input id="chTo" type="number" min="0" max="100" placeholder="e.g. 95" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1 font-mono"></label>
+     <label class="block"><span class="text-slate-400">ኦዶሜትር (Odometer KM)</span><input id="chOdo" type="number" step="0.1" placeholder="End KM" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1 font-mono"></label>
+     <label class="block"><span class="text-cyan-300">ለቻርጅ የተነዳ ኪ.ሜ (Chg KM)</span><input id="chKm" type="number" step="0.1" value="0" placeholder="0" class="w-full bg-slate-900 border border-cyan-800/70 rounded-lg px-2 py-1.5 mt-1 font-mono"></label>
+     <label class="block col-span-2 sm:col-span-1"><span class="text-slate-400">ማስታወሻ (Note)</span><input id="chNote" type="text" placeholder="ደረሰኝ / ማስታወሻ" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 mt-1"></label>
+    </div>
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+     <span class="text-[11px] text-slate-400">💡 እዚህ የሚመዘገብ የዛሬ ቻርጅ ማናጀሩ ሪፖርት ሲያጸድቅ (🔍 Review) በራሱ ተሞልቶ ይጠብቀዋል።</span>
+     <button onclick="saveCharge()" class="px-5 py-2 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-slate-950 font-extrabold shadow">⚡ ቻርጅ መዝግብ (Save Charging Session)</button>
+    </div>
+   </div>
+
+   <!-- STATION BREAKDOWN & FILTERS -->
+   <div id="chStationBar" class="flex flex-wrap gap-1.5"></div>
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+     <select id="chgFilterPlate" onchange="renderChgTable()" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5">
+      <option value="">🚐 ሁሉም መኪኖች (All Vehicles)</option>
+     </select>
+     <input id="chgFilterQ" type="text" oninput="renderChgTable()" placeholder="🔍 ፈልግ (ጣቢያ፣ ሰራተኛ፣ ማስታወሻ)…" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 min-w-[200px]">
+    </div>
+    <span id="chgRowsCount" class="text-slate-400 font-mono"></span>
+   </div>
+
+   <div class="overflow-x-auto"><table class="w-full"><thead class="text-slate-400 text-left border-b border-slate-800"><tr><th class="py-1.5">Date</th><th>Vehicle</th><th>kWh</th><th>Cost (ETB)</th><th>Battery</th><th>Odo / +Chg KM</th><th>Station & Note</th><th>By</th><th></th></tr></thead><tbody id="chRows"></tbody></table></div>
   </section>
 
   <!-- DRIVER SUMMARY (drivers: own vehicle; staff: click a plate in the dashboard) -->
@@ -816,98 +879,300 @@ input:disabled,select:disabled{background:#1e293b!important;color:#64748b!import
 <div id="gp" class="hidden print:block"><h2 style="font-size:20px;font-weight:800">ETEV TRADING — GATE PASS</h2><div id="gpBody" style="font-size:13px;margin-top:8px"></div><p style="font-size:9px;margin-top:24px;color:#555">ETEV Fleet Portal v4.6 · © 2026 Letarik Teshome. All rights reserved. · 0910 022 051</p></div>
 
 <!-- ADMIN -->
-<div id="adm" class="hidden fixed inset-0 bg-black/70 z-50 overflow-y-auto p-4"><div class="max-w-3xl mx-auto bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4 text-xs">
- <div class="flex justify-between"><h2 class="font-bold">⚙️ Super Admin</h2><button onclick="$('adm').classList.add('hidden')" class="px-2 py-1 rounded bg-slate-800">✕</button></div>
- <div id="cfgFields" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
-
- <!-- DEDICATED BATTERY ALERT THRESHOLDS BY VEHICLE CATEGORY -->
- <div id="admBatteryConfigSection" class="bg-slate-950 border border-emerald-800/60 rounded-2xl p-4 space-y-3">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-   <div>
-    <h3 class="font-bold text-sm text-emerald-300">🔋 Vehicle Category Battery Alert Thresholds · የባትሪ ማስጠንቀቂያ ገደቦች በመኪና ምድብ</h3>
-    <p class="text-[11px] text-slate-400 mt-0.5">Define custom Warning (%) and Critical Alert (%) battery thresholds and Gate Pass lock behavior for each vehicle category.</p>
+<div id="adm" class="hidden fixed inset-0 bg-black/70 z-50 overflow-y-auto p-4"><div class="max-w-4xl mx-auto bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4 text-xs">
+ <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+  <div>
+   <h2 class="font-bold text-sm text-amber-300">⚙️ Super Admin — የአስተዳደርና ፖሊሲ ማዕከል</h2>
+   <p class="text-[11px] text-slate-400">ታሪፍ፣ ባትሪና ቻርጅ፣ መልዕክቶች፣ ሰራተኞች፣ የዕዳ እፎይታ፣ የፍተሻ ዝርዝር፣ ባካፕና ኦዲት</p>
+  </div>
+  <div class="flex items-center gap-2">
+   <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1">
+    <span>🔍</span>
+    <input id="admSearch" type="text" placeholder="ቅንብር ፈልግ (Search settings)…" oninput="filterAdminSettings(this.value)" class="bg-transparent text-xs text-white placeholder-slate-500 outline-none w-44 md:w-56">
+    <button type="button" id="admSearchClear" onclick="filterAdminSettings('')" class="hidden text-slate-400 hover:text-white font-bold">✕</button>
    </div>
-   <button type="button" onclick="resetAdminBatteryThresholds()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300 font-bold">↺ Reset Defaults</button>
+   <button onclick="saveAdmin()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white">💾 Save All</button>
+   <button onclick="$('adm').classList.add('hidden')" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 font-bold">✕</button>
   </div>
-  <div id="admBatteryCatGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
  </div>
 
- <h3 class="font-bold">🚨 Alerts & daily reminder</h3>
- <div id="alertFields" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
- <p class="text-slate-400">The daily reminder goes to your Telegram group at the hour you set (Addis time) and lists vehicles that have not reported that day.</p>
- <h3 class="font-bold">📕 የቀን መዝጊያ፣ ☕ እረፍት፣ 📱 መሳሪያ (Day close, breaks, devices)</h3>
- <div id="v43Fields" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
- <p class="text-slate-400">ሰዓቶቹ በአዲስ አበባ ሰዓት (0–23) ናቸው፦ 7 = 1 ሰዓት ጠዋት፣ 10 = 4 ሰዓት፣ 12 = 6 ሰዓት። Hours are Addis clock hours.</p>
- <div id="admQuietHoursBox" class="bg-slate-950 border border-indigo-800/60 rounded-2xl p-4 space-y-2.5">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-   <div>
-    <h3 class="font-bold text-sm text-indigo-300">🌙 የጸጥታ ሰዓት (Quiet Hours — Night Telegram Pause)</h3>
-    <p class="text-[11px] text-slate-400 mt-0.5">በተመረጠው የሌሊት ሰዓት ውስጥ አስቸኳይ ያልሆኑ የቴሌግራም መልዕክቶች ድምጽ አያሰሙም (በፖርታሉ 🔔 ውስጥ ግን ወዲያውኑ ይቀመጣሉ)። 🚨 አደጋ (Incident)፣ 🔐 ደህንነት (Security) እና 🚨 አስቸኳይ ማስታወቂያዎች ሁልጊዜ ወዲያውኑ ይላካሉ።</p>
+ <!-- ADMIN CATEGORY TABS -->
+ <div id="admTabs" class="flex flex-wrap gap-1.5 border-b border-slate-800 pb-2.5" role="tablist">
+  <button type="button" data-adm-tab="all" onclick="setAdminTab('all')" class="px-3 py-1.5 rounded-xl font-bold bg-indigo-600 text-white">🌐 ሁሉም (All)</button>
+  <button type="button" data-adm-tab="rates" onclick="setAdminTab('rates')" class="px-3 py-1.5 rounded-xl font-bold bg-slate-800 text-slate-300">💰 1. ታሪፍና ቦነስ</button>
+  <button type="button" data-adm-tab="rules" onclick="setAdminTab('rules')" class="px-3 py-1.5 rounded-xl font-bold bg-slate-800 text-slate-300">🔋 2. ባትሪ፣ ቻርጅና ህጎች</button>
+  <button type="button" data-adm-tab="notify" onclick="setAdminTab('notify')" class="px-3 py-1.5 rounded-xl font-bold bg-slate-800 text-slate-300">🔔 3. መልዕክቶችና ቴሌግራም</button>
+  <button type="button" data-adm-tab="staff" onclick="setAdminTab('staff')" class="px-3 py-1.5 rounded-xl font-bold bg-slate-800 text-slate-300">👥 4. ሰራተኞች፣ ፈቃዶችና ዕዳ</button>
+  <button type="button" data-adm-tab="system" onclick="setAdminTab('system')" class="px-3 py-1.5 rounded-xl font-bold bg-slate-800 text-slate-300">📦 5. ሲስተም፣ ባካፕና ኦዲት</button>
+ </div>
+
+ <!-- TAB 1: RATES, BONUS & ROUTES -->
+ <div data-adm-sec="rates" class="space-y-4">
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-amber-300">💰 ካቢ / ያንጎ ቦነስ፣ የኪ.ሜ ቅጣት እና መሰረታዊ ህጎች (Cabby / Yango Bonus & KM Penalty)</h3>
+   <div id="cfgFields" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-emerald-300">🛣️ Routes & fares (የቀጠና መስመሮች እና ታሪፍ)</h3>
+   <p class="text-slate-400">Full fare = whole line (start ⇄ end). Half fare = to or from the middle stop. Changing a fare does not change records that are already approved.</p>
+   <div class="overflow-x-auto"><div class="min-w-[860px] space-y-2">
+   <div class="grid grid-cols-8 gap-1 text-slate-400"><span class="col-span-2">Name</span><span>Start</span><span>Middle stop</span><span>End</span><span>Full / Half fare</span><span>🎯 ዒላማ በፈረቃ / ቅዳሜ-እሁድ</span><span></span></div>
+   <div id="routeRows" class="space-y-2"></div></div></div>
+   <button onclick="addRouteRow()" class="px-3 py-1.5 rounded bg-slate-700">＋ Add route</button>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-teal-300">🎯 የቀጠና ዒላማ ቦነስ (Route target bonus)</h3>
+   <p class="text-slate-400">ገቢ = ጥሬ + ቴሌብር፣ በየፈረቃው። ቦነሱ የሚከፈለው ጥሬው ሙሉ ገቢ ሲሆን እና የታሪፍ ጉድለት ከሌለ ብቻ ነው። ዒላማ ያልደረሰ አይቀጣም። ዒላማው 0 የሆነ መስመር ቦነስ የለውም።</p>
+   <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+    <label class="flex items-center gap-2"><span>አይነት</span><select id="rbMode" onchange="drawRB()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1"><option value="tiers">ደረጃ (Steps by % of target)</option><option value="pct">ከዒላማ በላይ ካለው ገቢ % (Share of revenue over target)</option></select></label>
+    <div id="rbTiers" class="space-y-1"></div>
+    <div id="rbPct" class="flex flex-wrap gap-3"><label>ከዒላማ በላይ ካለው % <input id="rbPctV" type="number" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"></label><label>ከፍተኛ ብር በፈረቃ (0 = ገደብ የለም) <input id="rbCap" type="number" class="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"></label></div>
+    <label class="block">በሳምንት ስንት ጊዜ ዒላማ ሲያመልጥ ፍሊት ይነገረው (0 = አይነገር) <input id="cf_routeMissAlert" type="number" min="0" max="7" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"></label>
    </div>
-   <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-indigo-700/70 font-bold text-indigo-200 cursor-pointer">
-    <input type="checkbox" id="cf_quietHoursOn">
-    <span>🌙 የጸጥታ ሰዓት አብራ (Enable Quiet Hours)</span>
-   </label>
   </div>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-   <label class="block">
-    <span class="text-slate-400 text-[11px]">መጀመሪያ ሰዓት (Start Hour, 0–23 Addis)</span>
-    <input id="cf_quietStartHour" type="number" min="0" max="23" value="22" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 mt-1 font-mono font-bold text-indigo-200">
-    <span class="text-[10px] text-slate-500">ምሳሌ፦ 22 = ምሽቱ 4:00 ሰዓት</span>
-   </label>
-   <label class="block">
-    <span class="text-slate-400 text-[11px]">መጨረሻ ሰዓት (End Hour, 0–23 Addis)</span>
-    <input id="cf_quietEndHour" type="number" min="0" max="23" value="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 mt-1 font-mono font-bold text-indigo-200">
-    <span class="text-[10px] text-slate-500">ምሳሌ፦ 6 = ጠዋት 12:00 ሰዓት</span>
-   </label>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-orange-300">🧾 Expense categories (የወጪ ዓይነቶች)</h3>
+   <p class="text-slate-400">"Fleet" = the Fleet Admin may record this kind (with the repair-expenses permission).</p>
+   <div id="catRows" class="space-y-2"></div><button onclick="AXC.push({id:'',name:'',fleet:false});drawCats()" class="px-3 py-1.5 rounded bg-slate-700">＋ Add category</button>
   </div>
  </div>
- <h3 class="font-bold">📨 ማን ምን መልዕክት ይቀበላል (Who is told what)</h3>
- <p class="text-slate-400">— = ምንም · 🔔 = በፖርታሉ ውስጥ ብቻ · 🔔✈️ = ፖርታል + የግል ቴሌግራም (ቴሌግራሙን ያገናኘ ሰው)። ሹፌሮች የራሳቸውን መልዕክት ሁልጊዜ ያገኛሉ። <span id="admTg"></span></p>
- <div class="overflow-x-auto"><table class="w-full min-w-[560px]"><thead class="text-slate-400 text-left"><tr><th class="py-1">መልዕክት (Message)</th><th class="text-center">👑 Super Admin</th><th class="text-center">👔 Manager</th><th class="text-center">🛠 Fleet</th><th class="text-center">💼 Finance</th></tr></thead><tbody id="notifyRows"></tbody></table></div>
- <h3 class="font-bold">📢 የማኔጅመንት ቻናል (Management channel)</h3>
- <p class="text-slate-400">ሁሉም እንቅስቃሴ፣ የጸደቁ ሪፖርቶች ከፎቶ ጋር፣ አደጋዎች እና የቀን ማጠቃለያ ወደ አንድ የቴሌግራም ቻናል ይለጠፋሉ። ትናንሽ ነገሮች (መግቢያ፣ እረፍት) በሰዓት አንድ ጊዜ ተጠቅልለው ይሄዳሉ። ቻናሉ ለማኔጅመንት ብቻ ይሁን።</p>
- <div id="chBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2"></div>
- <h3 class="font-bold">📅 የሹፌሮች ምደባ ቻናል (Driver assignment channel)</h3>
- <p class="text-slate-400">የሳምንቱ ፕሮግራም ሲታተም፣ በየቀኑ ጠዋት "የዛሬ ምደባ" እና ለውጦች ወደዚህ ቻናል ይለጠፋሉ። ሹፌሮች እና ፍሊት የሚያዩት ቻናል ይሁን (ከማኔጅመንት ቻናሉ የተለየ)።</p>
- <div id="rchBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2"></div>
- <h3 class="font-bold">📈 የነፃ እቅድ አጠቃቀም (Free-plan usage)</h3>
- <p class="text-slate-400">በየሰዓቱ ከCloudflare እና ከGitHub ይነበባል። 60%፣ 80% እና 95% ሲደርስ መልዕክት ይላካል። የቀን ገደቦች በየቀኑ ሌሊቱ 6 ሰዓት (UTC 00:00) ይታደሳሉ።</p>
- <div id="usageBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2"></div>
- <h3 class="font-bold">🛣️ Routes & fares (የቀጠና መስመሮች እና ታሪፍ)</h3>
- <p class="text-slate-400">Full fare = whole line (start ⇄ end). Half fare = to or from the middle stop. Changing a fare does not change records that are already approved.</p>
- <div class="overflow-x-auto"><div class="min-w-[860px] space-y-2">
- <div class="grid grid-cols-8 gap-1 text-slate-400"><span class="col-span-2">Name</span><span>Start</span><span>Middle stop</span><span>End</span><span>Full / Half fare</span><span>🎯 ዒላማ በፈረቃ / ቅዳሜ-እሁድ</span><span></span></div>
- <div id="routeRows" class="space-y-2"></div></div></div>
- <button onclick="addRouteRow()" class="px-3 py-1.5 rounded bg-slate-700">＋ Add route</button>
- <h3 class="font-bold">📄 የሰነድ አይነቶች (Document types)</h3>
- <p class="text-slate-400">ጊዜው ያለፈበት ሰነድ ስራ ያስቆማል (Super Admin ካልፈቀደ)። አስታዋሽ ከማብቂያው በፊት በእነዚህ ቀናት ይላካል፦ <input id="cf_docRemindDays" class="w-28 bg-slate-950 border border-slate-700 rounded px-2 py-1"> (ምሳሌ 30,7,1)</p>
- <div id="dtRows" class="space-y-1"></div><button onclick="ADT.push({name:'',for:'driver',mode:'any'});drawDT()" class="px-3 py-1.5 rounded bg-slate-700">＋ አይነት ጨምር</button>
- <h3 class="font-bold">🎯 የቀጠና ዒላማ ቦነስ (Route target bonus)</h3>
- <p class="text-slate-400">ገቢ = ጥሬ + ቴሌብር፣ በየፈረቃው። ቦነሱ የሚከፈለው ጥሬው ሙሉ ገቢ ሲሆን እና የታሪፍ ጉድለት ከሌለ ብቻ ነው። ዒላማ ያልደረሰ አይቀጣም። ዒላማው 0 የሆነ መስመር ቦነስ የለውም።</p>
- <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
-  <label class="flex items-center gap-2"><span>አይነት</span><select id="rbMode" onchange="drawRB()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1"><option value="tiers">ደረጃ (Steps by % of target)</option><option value="pct">ከዒላማ በላይ ካለው ገቢ % (Share of revenue over target)</option></select></label>
-  <div id="rbTiers" class="space-y-1"></div>
-  <div id="rbPct" class="flex flex-wrap gap-3"><label>ከዒላማ በላይ ካለው % <input id="rbPctV" type="number" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"></label><label>ከፍተኛ ብር በፈረቃ (0 = ገደብ የለም) <input id="rbCap" type="number" class="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1"></label></div>
-  <label class="block">በሳምንት ስንት ጊዜ ዒላማ ሲያመልጥ ፍሊት ይነገረው (0 = አይነገር) <input id="cf_routeMissAlert" type="number" min="0" max="7" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1"></label>
+
+ <!-- TAB 2: BATTERY, CHARGING, KM & INSPECTION RULES -->
+ <div data-adm-sec="rules" class="space-y-4">
+  <!-- DEDICATED BATTERY ALERT THRESHOLDS BY VEHICLE CATEGORY -->
+  <div id="admBatteryConfigSection" class="bg-slate-950 border border-emerald-800/60 rounded-2xl p-4 space-y-3">
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+     <h3 class="font-bold text-sm text-emerald-300">🔋 Vehicle Category Battery Alert Thresholds · የባትሪ ማስጠንቀቂያ ገደቦች በመኪና ምድብ</h3>
+     <p class="text-[11px] text-slate-400 mt-0.5">Define custom Warning (%) and Critical Alert (%) battery thresholds and Gate Pass lock behavior for each vehicle category.</p>
+    </div>
+    <button type="button" onclick="resetAdminBatteryThresholds()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-slate-300 font-bold">↺ Reset Defaults</button>
+   </div>
+   <div id="admBatteryCatGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+  </div>
+
+  <!-- CHARGING STATIONS & TARIFF RULES -->
+  <div id="admChargingConfigBox" class="bg-slate-950 border border-amber-800/60 rounded-2xl p-4 space-y-3">
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+     <h3 class="font-bold text-sm text-amber-300">⚡ የቻርጅ ጣቢያዎች እና የkWh ታሪፍ (Charging Stations & Tariff Rules)</h3>
+     <p class="text-[11px] text-slate-400 mt-0.5">kWh ሲሞላ ወጪው (ETB) በራሱ እንዲሰላ እና ከከፍተኛ የቻርጅ ወጪ ገደብ በላይ ሲሆን እንዲከለከል ያድርጉ።</p>
+    </div>
+   </div>
+   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <label class="block bg-slate-900 rounded-xl p-3 border border-slate-800">
+     <span class="text-slate-300 font-semibold block">⚡ የ1 kWh ነባሪ ዋጋ (Default ETB per kWh)</span>
+     <input id="cf_chargeRateEtb" type="number" step="0.1" min="0" value="4.5" class="w-full bg-slate-950 border border-amber-700/70 rounded-lg px-2.5 py-1.5 mt-1 font-mono font-bold text-amber-200">
+     <span class="text-[10px] text-slate-400">kWh ሲጻፍ ብሩ በራሱ ይሞላል (0 = በራሱ አይሞላም)</span>
+    </label>
+    <label class="block bg-slate-900 rounded-xl p-3 border border-slate-800">
+     <span class="text-slate-300 font-semibold block">🛑 የአንድ ጊዜ ቻርጅ ከፍተኛ ብር ገደብ (Max Single Charge ETB)</span>
+     <input id="cf_chargeMaxEtb" type="number" step="50" min="0" value="2500" class="w-full bg-slate-950 border border-amber-700/70 rounded-lg px-2.5 py-1.5 mt-1 font-mono font-bold text-amber-200">
+     <span class="text-[10px] text-slate-400">ከዚህ ብር በላይ የሆነ የቻርጅ ወጪ በስህተት እንዳይመዘገብ ይከለክላል (0 = ገደብ የለም)</span>
+    </label>
+   </div>
+   <div class="space-y-2 pt-1">
+    <div class="flex items-center justify-between">
+     <span class="font-bold text-slate-300">📍 የተፈቀዱ የቻርጅ ጣቢያዎች (Authorized Charging Stations)</span>
+     <button type="button" onclick="ACHG_ST.push('');drawAdminChargeStations()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold">＋ ጣቢያ ጨምር</button>
+    </div>
+    <div id="admChgStationsRows" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+   </div>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-cyan-300">🚨 Alerts, Reserve & Daily Reminder</h3>
+   <div id="alertFields" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+   <p class="text-slate-400">The daily reminder goes to your Telegram group at the hour you set (Addis time) and lists vehicles that have not reported that day.</p>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-teal-300">📕 የቀን መዝጊያ፣ ☕ እረፍት፣ 📱 መሳሪያ እና የፈረቃ ሰዓቶች (Day close, breaks, devices & shifts)</h3>
+   <div id="v43Fields" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+   <p class="text-slate-400">ሰዓቶቹ በአዲስ አበባ ሰዓት (0–23) ናቸው፦ 7 = 1 ሰዓት ጠዋት፣ 10 = 4 ሰዓት፣ 12 = 6 ሰዓት። Hours are Addis clock hours.</p>
+  </div>
+
+  <!-- CUSTOMIZABLE SHIFT INSPECTION CHECKLIST -->
+  <div id="admInspChecklistBox" class="bg-slate-950 border border-teal-800/60 rounded-2xl p-4 space-y-3">
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+     <h3 class="font-bold text-sm text-teal-300">📋 የፈረቃ መረካከቢያ ፍተሻ ዝርዝር ማስተካከያ (Customizable Shift Inspection Checklist)</h3>
+     <p class="text-[11px] text-slate-400 mt-0.5">ሹፌሮች መኪና ሲረከቡ የሚፈትሿቸውን ነጥቦች ይጨምሩ ወይም ያስተካክሉ። <b>🔴 ከባድ (Holds Vehicle)</b> ከተመረጠ ችግር ሲገኝ መኪናው ፍሊት እስኪወስን በ"Hold" ይቆማል። <b>📦 ንብረት</b> ከተመረጠ "✅ ደህና / ⚠️ ችግር / ❌ የለም" ምርጫ ይሰጣል።</p>
+    </div>
+    <div class="flex gap-1.5">
+     <button type="button" onclick="resetAdminInspItems()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">↺ ነባሪ መልስ</button>
+     <button type="button" onclick="addAdminInspItem()" class="px-2.5 py-1 rounded-lg bg-teal-700 hover:bg-teal-600 text-white font-bold">＋ የፍተሻ ነጥብ ጨምር</button>
+    </div>
+   </div>
+   <div id="admInspRows" class="space-y-1.5 max-h-72 overflow-y-auto pr-1"></div>
+  </div>
  </div>
- <h3 class="font-bold">👑 Super Admin PIN</h3>
- <div class="grid grid-cols-2 gap-3"><input id="nAdminPin" placeholder="New admin PIN (6–12 digits, blank = keep)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5"></div>
- <h3 class="font-bold">👥 Staff users (ሰራተኞች) <span class="text-slate-400 font-normal">(each person has their own PIN; the role decides what they can do)</span></h3>
- <p id="mgrLegacy" class="hidden text-amber-300">⚠️ The old shared manager PIN still works until you add named users here and save.</p>
- <div class="grid grid-cols-7 gap-1 text-slate-400"><span class="col-span-3">Name</span><span>Role</span><span class="col-span-2">New PIN (blank = keep)</span><span>Active</span></div>
- <div id="mgrRows" class="space-y-2"></div><button onclick="addMgr()" class="px-3 py-1.5 rounded bg-slate-700">＋ Add user</button>
- <h3 class="font-bold">🔐 Permissions (ፈቃዶች) <span class="text-slate-400 font-normal">— tick what each role may do. Changes apply as soon as you save. The Super Admin always has everything.</span></h3>
- <div class="overflow-x-auto"><table class="w-full"><thead class="text-slate-400 text-left"><tr><th class="py-1">Permission</th><th class="text-center">👔 Manager</th><th class="text-center">🛠 Fleet Admin</th><th class="text-center">💼 Finance</th></tr></thead><tbody id="permRows"></tbody></table></div>
- <p class="text-slate-400">Always Super Admin only: rules and rates, KM penalty waivers, changing or deleting approved reports, staff users and permissions, salaries, Super Admin PIN, backup and Telegram.</p>
- <h3 class="font-bold">🧾 Expense categories (የወጪ ዓይነቶች)</h3>
- <p class="text-slate-400">"Fleet" = the Fleet Admin may record this kind (with the repair-expenses permission).</p>
- <div id="catRows" class="space-y-2"></div><button onclick="AXC.push({id:'',name:'',fleet:false});drawCats()" class="px-3 py-1.5 rounded bg-slate-700">＋ Add category</button>
- <h3 class="font-bold">🚐 Vehicles & drivers</h3>
- <p class="text-slate-400">Vehicles, drivers, PINs, day assignments and next start KM are in <button onclick="$('adm').classList.add('hidden');openFleet()" class="underline text-teal-300">🚐 Fleet</button>.</p>
- <h3 class="font-bold">📷 Photos & 📦 Backup</h3>
- <div id="extraFields" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
- <div class="flex flex-wrap gap-2"><button onclick="saveAdmin()" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold">💾 Save All</button><button onclick="downloadBackup()" class="px-4 py-2 rounded-xl bg-emerald-800 font-bold">📦 Download backup</button><button onclick="tgTest()" class="px-4 py-2 rounded-xl bg-sky-700 font-bold">Test Telegram</button><button onclick="reminderTest()" class="px-4 py-2 rounded-xl bg-sky-900 font-bold">Send reminder now</button><button onclick="reminderTest('digest')" class="px-4 py-2 rounded-xl bg-sky-900 font-bold">🟡 Send summary now</button><button onclick="reminderTest('closeRemind')" class="px-4 py-2 rounded-xl bg-sky-900 font-bold">📕 Send close reminder now</button><button onclick="showAudit()" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">📜 Audit log</button></div><div id="auditBox" class="hidden max-h-64 overflow-auto"></div></div></div>
+
+ <!-- TAB 3: NOTIFICATIONS, QUIET HOURS & TELEGRAM CHANNELS -->
+ <div data-adm-sec="notify" class="space-y-4">
+  <div id="admQuietHoursBox" class="bg-slate-950 border border-indigo-800/60 rounded-2xl p-4 space-y-2.5">
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+     <h3 class="font-bold text-sm text-indigo-300">🌙 የጸጥታ ሰዓት (Quiet Hours — Night Telegram Pause)</h3>
+     <p class="text-[11px] text-slate-400 mt-0.5">በተመረጠው የሌሊት ሰዓት ውስጥ አስቸኳይ ያልሆኑ የቴሌግራም መልዕክቶች ድምጽ አያሰሙም (በፖርታሉ 🔔 ውስጥ ግን ወዲያውኑ ይቀመጣሉ)። 🚨 አደጋ (Incident)፣ 🔐 ደህንነት (Security) እና 🚨 አስቸኳይ ማስታወቂያዎች ሁልጊዜ ወዲያውኑ ይላካሉ።</p>
+    </div>
+    <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-indigo-700/70 font-bold text-indigo-200 cursor-pointer">
+     <input type="checkbox" id="cf_quietHoursOn">
+     <span>🌙 የጸጥታ ሰዓት አብራ (Enable Quiet Hours)</span>
+    </label>
+   </div>
+   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+    <label class="block">
+     <span class="text-slate-400 text-[11px]">መጀመሪያ ሰዓት (Start Hour, 0–23 Addis)</span>
+     <input id="cf_quietStartHour" type="number" min="0" max="23" value="22" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 mt-1 font-mono font-bold text-indigo-200">
+     <span class="text-[10px] text-slate-500">ምሳሌ፦ 22 = ምሽቱ 4:00 ሰዓት</span>
+    </label>
+    <label class="block">
+     <span class="text-slate-400 text-[11px]">መጨረሻ ሰዓት (End Hour, 0–23 Addis)</span>
+     <input id="cf_quietEndHour" type="number" min="0" max="23" value="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 mt-1 font-mono font-bold text-indigo-200">
+     <span class="text-[10px] text-slate-500">ምሳሌ፦ 6 = ጠዋት 12:00 ሰዓት</span>
+    </label>
+   </div>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-sky-300">📨 ማን ምን መልዕክት ይቀበላል (Who is told what)</h3>
+   <p class="text-slate-400">— = ምንም · 🔔 = በፖርታሉ ውስጥ ብቻ · 🔔✈️ = ፖርታል + የግል ቴሌግራም (ቴሌግራሙን ያገናኘ ሰው)። ሹፌሮች የራሳቸውን መልዕክት ሁልጊዜ ያገኛሉ። <span id="admTg"></span></p>
+   <div class="overflow-x-auto"><table class="w-full min-w-[640px]"><thead class="text-slate-400 text-left"><tr><th class="py-1">መልዕክት (Message)</th><th class="text-center">👑 Super Admin</th><th class="text-center">👔 Manager</th><th class="text-center">🛠 Fleet</th><th class="text-center">⚡ Charging</th><th class="text-center">💼 Finance</th></tr></thead><tbody id="notifyRows"></tbody></table></div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-3">
+   <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+    <h3 class="font-bold text-sky-300">📢 የማኔጅመንት ቻናል (Management channel)</h3>
+    <p class="text-slate-400">ሁሉም እንቅስቃሴ፣ የጸደቁ ሪፖርቶች ከፎቶ ጋር፣ አደጋዎች እና የቀን ማጠቃለያ ወደ አንድ የቴሌግራም ቻናል ይለጠፋሉ።</p>
+    <div id="chBox" class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2"></div>
+   </div>
+   <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+    <h3 class="font-bold text-indigo-300">📅 የሹፌሮች ምደባ ቻናል (Driver assignment channel)</h3>
+    <p class="text-slate-400">የሳምንቱ ፕሮግራም ሲታተም፣ በየቀኑ ጠዋት "የዛሬ ምደባ" እና ለውጦች ወደዚህ ቻናል ይለጠፋሉ።</p>
+    <div id="rchBox" class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2"></div>
+   </div>
+  </div>
+ </div>
+
+ <!-- TAB 4: STAFF, PERMISSIONS & DRIVER DEBT GRACE PERMITS -->
+ <div data-adm-sec="staff" class="space-y-4">
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-amber-300">👑 Super Admin PIN & Session Security</h3>
+   <div class="flex flex-wrap items-center gap-3">
+    <input id="nAdminPin" placeholder="New admin PIN (6–12 digits, blank = keep)" class="flex-1 min-w-[240px] bg-slate-950 border border-slate-700 rounded-xl px-3 py-2">
+    <button type="button" onclick="forceLogoutAllSessions()" class="px-3.5 py-2 rounded-xl bg-rose-900 hover:bg-rose-800 border border-rose-700 text-rose-100 font-bold flex items-center gap-1.5">
+     <span>🔒</span><span>ሁሉንም ክፍለ-ጊዜዎች አስወጣ (Force Sign-Out All Sessions)</span>
+    </button>
+   </div>
+   <p class="text-[11px] text-slate-400">Force Sign-Out ወዲያውኑ ሁሉንም ሹፌሮች፣ ማናጀሮች፣ ፍሊት እና ፋይናንስ ከስልካቸው/ኮምፒውተራቸው ያስወጣል (እንደገና በPIN እንዲገቡ ያስገድዳል)።</p>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-teal-300">👥 Staff users (ሰራተኞች) <span class="text-slate-400 font-normal">(each person has their own PIN; the role decides what they can do)</span></h3>
+   <p id="mgrLegacy" class="hidden text-amber-300">⚠️ The old shared manager PIN still works until you add named users here and save.</p>
+   <div class="grid grid-cols-7 gap-1 text-slate-400"><span class="col-span-3">Name</span><span>Role</span><span class="col-span-2">New PIN (blank = keep)</span><span>Active</span></div>
+   <div id="mgrRows" class="space-y-2"></div><button onclick="addMgr()" class="px-3 py-1.5 rounded bg-slate-700">＋ Add user</button>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-indigo-300">🔐 Permissions (ፈቃዶች) <span class="text-slate-400 font-normal">— tick what each role may do. Changes apply as soon as you save. The Super Admin always has everything.</span></h3>
+   <div class="overflow-x-auto"><table class="w-full"><thead class="text-slate-400 text-left"><tr><th class="py-1">Permission</th><th class="text-center">👔 Manager</th><th class="text-center">🛠 Fleet Admin</th><th class="text-center">⚡ Charging Dept</th><th class="text-center">💼 Finance</th></tr></thead><tbody id="permRows"></tbody></table></div>
+   <p class="text-slate-400">Always Super Admin only: rules and rates, KM penalty waivers, changing or deleting approved reports, staff users and permissions, salaries, Super Admin PIN, backup and Telegram.</p>
+  </div>
+
+  <!-- DRIVER DEBT INSTALLMENT / TEMPORARY GATE PASS UNLOCK PERMITS -->
+  <div id="admDebtPermitsBox" class="bg-slate-950 border border-rose-800/60 rounded-2xl p-4 space-y-3">
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+     <h3 class="font-bold text-sm text-rose-300">🛑 የሹፌር ዕዳ ክፍያ ስምምነት / ጊዜያዊ Gate Pass መፍቀጃ (Driver Debt Grace Permits)</h3>
+     <p class="text-[11px] text-slate-400 mt-0.5">የሹፌር ዕዳ ከገደቡ (Debt Lock ETB) ሲያልፍ Gate Pass ይቆለፋል። ሹፌሩ በየቀኑ እየሰራ በክፍያ ስምምነት (Installment) እንዲከፍል እስከተወሰነ ቀን ድረስ ጊዜያዊ ፈቃድ መስጠት ይችላሉ።</p>
+    </div>
+   </div>
+   <div id="admDebtorsList" class="space-y-1.5"></div>
+   <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+    <div class="font-bold text-slate-300">🔓 አዲስ ጊዜያዊ የዕዳ እፎይታ ፈቃድ ስጥ (Grant Debt Grace Permit)</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+     <label class="block"><span class="text-slate-400 text-[11px]">ሹፌር (Driver)</span><select id="dpDriver" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 mt-1"></select></label>
+     <label class="block"><span class="text-slate-400 text-[11px]">እስከ መቼ ይፈቀድ (Permit Until)</span><input id="dpUntil" type="date" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 mt-1"></label>
+     <label class="block"><span class="text-slate-400 text-[11px]">የክፍያ ስምምነት / ምክንያት (Agreement Note)</span><input id="dpNote" placeholder="ምሳሌ፦ በቀን 300 ብር እየከፈለ ይስራ" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 mt-1"></label>
+     <button type="button" onclick="saveAdminDebtPermit()" class="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold">🔓 ፈቃድ ስጥ (Grant Permit)</button>
+    </div>
+   </div>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+   <h3 class="font-bold">🚐 Vehicles & drivers</h3>
+   <p class="text-slate-400">Vehicles, drivers, PINs, day assignments and next start KM are in <button onclick="$('adm').classList.add('hidden');openFleet()" class="underline text-teal-300 font-bold">🚐 Fleet</button>.</p>
+  </div>
+ </div>
+
+ <!-- TAB 5: SYSTEM, DOCS, BACKUP/ROLLBACK & AUDIT EXPLORER -->
+ <div data-adm-sec="system" class="space-y-4">
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-amber-300">📄 የሰነድ አይነቶች (Document types)</h3>
+   <p class="text-slate-400">ጊዜው ያለፈበት ሰነድ ስራ ያስቆማል (Super Admin ካልፈቀደ)። አስታዋሽ ከማብቂያው በፊት በእነዚህ ቀናት ይላካል፦ <input id="cf_docRemindDays" class="w-28 bg-slate-950 border border-slate-700 rounded px-2 py-1"> (ምሳሌ 30,7,1)</p>
+   <div id="dtRows" class="space-y-1"></div><button onclick="ADT.push({name:'',for:'driver',mode:'any'});drawDT()" class="px-3 py-1.5 rounded bg-slate-700">＋ አይነት ጨምር</button>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <h3 class="font-bold text-cyan-300">📷 Photos, Service & Debt Lock Limits</h3>
+   <div id="extraFields" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+  </div>
+
+  <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+   <h3 class="font-bold text-emerald-300">📈 የነፃ እቅድ አጠቃቀም (Free-plan usage)</h3>
+   <p class="text-slate-400">በየሰዓቱ ከCloudflare እና ከGitHub ይነበባል። 60%፣ 80% እና 95% ሲደርስ መልዕክት ይላካል።</p>
+   <div id="usageBox" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2"></div>
+  </div>
+
+  <!-- CONFIG HISTORY ROLLBACK & BACKUP VERIFY / RESTORE -->
+  <div id="admBackupRestoreBox" class="bg-slate-950 border border-emerald-800/60 rounded-2xl p-4 space-y-4">
+   <div class="grid md:grid-cols-2 gap-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+     <h4 class="font-bold text-amber-300">⏪ የቅንብር ለውጥ ታሪክ (Config Snapshot Rollback — Last 5)</h4>
+     <p class="text-[11px] text-slate-400">Save All በተጫኑ ቁጥር የቀድሞው ቅንብር ይቀመጣል። ስህተት ከተፈጠረ ወደ ቀድሞው መመለስ ይችላሉ።</p>
+     <div id="admPolicyHistList" class="space-y-1.5"></div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+     <h4 class="font-bold text-emerald-300">♻️ የባካፕ ፋይል ማረጋገጫ እና መመለሻ (Verify / Restore Backup JSON)</h4>
+     <p class="text-[11px] text-slate-400">ያወረዱትን <code class="text-slate-300">ETEV_backup_*.json</code> ፋይል ይምረጡና ትክክለኛነቱን ያረጋግጡ ወይም ይመልሱ።</p>
+     <input id="admBackupFile" type="file" accept=".json,application/json" onchange="onAdminBackupFileChange()" class="w-full text-slate-300 text-[11px] bg-slate-950 border border-slate-700 rounded-lg p-1.5">
+     <div class="flex flex-wrap gap-1.5 pt-1">
+      <button type="button" onclick="runAdminBackupRestore('verify')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold">🔍 ፋይሉን አረጋግጥ (Verify)</button>
+      <button type="button" onclick="runAdminBackupRestore('policy')" class="px-2.5 py-1.5 rounded-lg bg-amber-800 hover:bg-amber-700 text-white font-bold">⚙️ ቅንብሮችን መልስ (Restore Policy)</button>
+      <button type="button" onclick="runAdminBackupRestore('full')" class="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold">♻️ ሙሉ ባካፕ መልስ (Full Restore)</button>
+     </div>
+     <div id="admBackupVerifyStatus" class="hidden bg-slate-950 border border-slate-800 rounded-lg p-2 text-[11px] space-y-1"></div>
+    </div>
+   </div>
+  </div>
+
+  <!-- ADVANCED AUDIT LOG EXPLORER -->
+  <div id="admAuditExplorerBox" class="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+   <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
+     <h3 class="font-bold text-sm text-sky-300">🕵️ የኦዲት ምርመራ ማዕከል (Advanced Audit Log Explorer)</h3>
+     <p class="text-[11px] text-slate-400">ማን፣ መቼ፣ ከየትኛው ስልክ/ቦታ ምን እንዳደረገ በሰው፣ በድርጊት ወይም በታርጋ አጣርተው ይመልከቱ።</p>
+    </div>
+    <div class="flex gap-1.5">
+     <button type="button" onclick="showAudit()" class="px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 font-bold text-white">📜 ኦዲት ጫን (Load Audit)</button>
+     <button type="button" onclick="exportAuditCsv()" class="px-3 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-700 font-bold text-emerald-100">📥 Export Audit CSV</button>
+    </div>
+   </div>
+   <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+    <select id="audActorFilter" onchange="renderAuditTable()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs"><option value="">👤 ሁሉም ተጠቃሚዎች (All Actors)</option></select>
+    <select id="audActionFilter" onchange="renderAuditTable()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs"><option value="">⚡ ሁሉም ድርጊቶች (All Actions)</option></select>
+    <input id="audSearchInput" type="text" placeholder="በታርጋ፣ ምክንያት፣ ስልክ ወይም ከተማ ፈልግ…" oninput="renderAuditTable()" class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs">
+   </div>
+   <div id="auditBox" class="hidden max-h-80 overflow-auto bg-slate-900/90 border border-slate-800 rounded-xl p-2"></div>
+  </div>
+ </div>
+
+ <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-800"><button onclick="saveAdmin()" class="px-4 py-2 rounded-xl bg-indigo-600 font-bold">💾 Save All</button><button onclick="downloadBackup()" class="px-4 py-2 rounded-xl bg-emerald-800 font-bold">📦 Download backup</button><button onclick="tgTest()" class="px-4 py-2 rounded-xl bg-sky-700 font-bold">Test Telegram</button><button onclick="reminderTest()" class="px-4 py-2 rounded-xl bg-sky-900 font-bold">Send reminder now</button><button onclick="reminderTest('digest')" class="px-4 py-2 rounded-xl bg-sky-900 font-bold">🟡 Send summary now</button><button onclick="reminderTest('closeRemind')" class="px-4 py-2 rounded-xl bg-sky-900 font-bold">📕 Send close reminder now</button><button onclick="setAdminTab('system');showAudit()" class="px-4 py-2 rounded-xl bg-slate-700 font-bold">📜 Audit log</button></div></div></div>
 
 <!-- FLEET (Fleet Admin / Super Admin): drivers, vehicles, day assignments, next start KM, manager performance -->
 <div id="flt" class="hidden fixed inset-0 bg-black/70 z-50 overflow-y-auto p-4"><div class="max-w-4xl mx-auto bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4 text-xs">
@@ -1612,7 +1877,7 @@ async function boot(){
  try{ME=await api('me');OFFLINE_ME=false;if(ME.role==='driver')ls.set('etev_me',JSON.stringify(ME));else ls.del('etev_me')}
  catch(e){const c=ls.get('etev_me');if(!isNetErr(e)||!c||!T)throw e;ME=JSON.parse(c);OFFLINE_ME=true;ME.today=new Date(Date.now()+3*3600e3).toISOString().slice(0,10)}
  drawNet();VEH=ME.vehicles;const st=ME.role!=='driver',ad=ME.role==='admin',P=ME.perms||{};
- const RL={admin:'Super Admin',manager:'Manager',fleet:'Fleet Admin',finance:'Finance'};
+ const RL={admin:'Super Admin',manager:'Manager',fleet:'Fleet Admin',charging:'⚡ Charging Dept (የቻርጅ ክፍል)',finance:'Finance'};
  $('login').classList.add('hidden');$('app').classList.remove('hidden');$('who').textContent=(ME.role==='driver'?`Driver: ${ME.driver?ME.driver.name:''}${ME.plate?' · '+ME.plate:''}`:(RL[ME.role]||ME.role)+': '+ME.name);
  const canEnter=!st||ad, canReview=ad||P.approve;
  $('bFleet').classList.toggle('hidden',!(P.vehicles||P.assign||P.driverPin||P.startKm||P.mgrStats||P.audit)||!st);
@@ -1628,6 +1893,7 @@ async function boot(){
  $('photoReq').classList.toggle('hidden',!ME.cfg.requirePhotos);$('bReject').classList.add('hidden');
  if($('lowBattPctLbl'))$('lowBattPctLbl').textContent=lowBatt();
  $('chPlate').innerHTML=ME.vehicles.map(v=>`<option value="${esc(v.plate)}">${esc(v.plate)}</option>`).join('');$('chDate').value=$('pDate').value=ME.today;
+ syncChargingUiFromCfg();
  const sd=$('shiftDate');sd.max=ME.today||'';sd.min=st?'':(()=>{const d=new Date((ME.today||new Date().toISOString().slice(0,10))+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-(ME.cfg.driverMaxBackDays||7));return d.toISOString().slice(0,10)})();
  const dsh=st&&!!(P.opsDash||P.reports);
  ['bAdmin'].forEach(i=>$(i).classList.toggle('hidden',!ad));$('bCsv').classList.toggle('hidden',!P.reports||!st);$('bPay').classList.toggle('hidden',!P.reports||!st);$('bDash').classList.toggle('hidden',!dsh);$('dash').classList.toggle('hidden',!dsh);
@@ -1817,7 +2083,7 @@ function openInsp(){if(!INSP)return;const sh=INSP.shifts.find(x=>x.no===INSP.shi
  $('inspT').textContent=`📋 ${INSP.plate} · ${sh.name} ፍተሻ`;$('inspFrom').classList.toggle('hidden',!INSP.handoverFrom);$('inspFrom').innerHTML=INSP.handoverFrom?`🔁 ከ<b>${esc(INSP.handoverFrom)}</b> ይረከባሉ — ኪ.ሜውን፣ ባትሪውን እና ንብረቶቹን አብራችሁ ተመልከቱ።`:'';
  $('inspKm').value='';$('inspKmHint').textContent=`የሚጠበቀው፦ ${INSP.expectedKm}`;$('inspBat').value='';$('inspNote').value='';['front','back','left','right'].forEach(k=>$('inspPh_'+k).value='');
  const prop=['tv','flash','speaker','phone','led','safety'];window.INSPV={};
- $('inspItems').innerHTML=Object.entries(INSP.items).map(([k,x])=>`<div class="flex items-center justify-between gap-2 bg-slate-950 rounded px-2 py-1.5"><span>${x.serious?'🔴 ':''}${esc(x.l)}</span><span class="flex gap-1 shrink-0" data-k="${k}">${[['ok','✅'],['bad','⚠️'],...(prop.includes(k)?[['missing','❌']]:[])].map(([v,ic])=>`<button type="button" data-v="${v}" onclick="inspSet('${k}','${v}')" class="w-9 h-8 rounded bg-slate-800">${ic}</button>`).join('')}</span></div>`).join('');
+ $('inspItems').innerHTML=Object.entries(INSP.items).map(([k,x])=>{const isProp=x.prop!==undefined?!!x.prop:prop.includes(k);return `<div class="flex items-center justify-between gap-2 bg-slate-950 rounded px-2 py-1.5"><span>${x.serious?'🔴 ':''}${esc(x.l)}</span><span class="flex gap-1 shrink-0" data-k="${k}">${[['ok','✅'],['bad','⚠️'],...(isProp?[['missing','❌']]:[])].map(([v,ic])=>`<button type="button" data-v="${v}" onclick="inspSet('${k}','${v}')" class="w-9 h-8 rounded bg-slate-800">${ic}</button>`).join('')}</span></div>`}).join('');
  $('inspM').classList.remove('hidden')}
 function inspSet(k,v){window.INSPV[k]=v;document.querySelectorAll(`#inspItems [data-k="${k}"] button`).forEach(b=>{const on=b.dataset.v===v;b.className='w-9 h-8 rounded '+(on?(v==='ok'?'bg-emerald-700':v==='bad'?'bg-amber-700':'bg-rose-800'):'bg-slate-800')})}
 async function sendInsp(){if(!navigator.onLine)return alert('📴 ፍተሻ ለመላክ ኢንተርኔት ያስፈልጋል (needs internet)');
@@ -1858,7 +2124,7 @@ async function openRev(id){try{RV=await api(`shifts/${id}/review`)}catch(e){retu
  $('revM').classList.remove('hidden')}
 function closeRev(){$('revM').classList.add('hidden')}
 function drawRvCh(){const off=$('rvNone').checked;$('rvCh').classList.toggle('hidden',off);$('rvAdd').classList.toggle('hidden',off);const i2='w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-1 mt-0.5';
- $('rvCh').innerHTML=RVC.map((c,i)=>`<div class="grid grid-cols-3 md:grid-cols-6 gap-1 items-end bg-slate-900/60 rounded p-1.5"><label>kWh<input type="number" inputmode="decimal" value="${c.kwh??''}" oninput="RVC[${i}].kwh=this.value" class="${i2}"></label><label>ብር<input type="number" inputmode="decimal" value="${c.cost??''}" oninput="RVC[${i}].cost=this.value" class="${i2}"></label><label>ባትሪ ከ%<input type="number" inputmode="numeric" value="${c.socFrom??''}" oninput="RVC[${i}].socFrom=this.value" class="${i2}"></label><label>ወደ %<input type="number" inputmode="numeric" value="${c.socTo??''}" oninput="RVC[${i}].socTo=this.value" class="${i2}"></label><label>ጣቢያ<input value="${esc(c.location||'')}" oninput="RVC[${i}].location=this.value" class="${i2}"></label><label>ለቻርጅ ኪ.ሜ<input type="number" inputmode="decimal" value="${c.km??''}" oninput="RVC[${i}].km=this.value;rvNextChk()" class="${i2}"></label><button onclick="RVC.splice(${i},1);drawRvCh()" class="col-span-3 md:col-span-6 text-rose-300 text-right">✕ አስወግድ</button></div>`).join('')||'<div class="text-slate-500">ቻርጅ አልገባም — "＋ ቻርጅ ጨምር" ወይም "ቻርጅ አልተደረገም"</div>';rvNextChk()}
+ $('rvCh').innerHTML=RVC.map((c,i)=>`<div class="grid grid-cols-3 md:grid-cols-6 gap-1 items-end bg-slate-900/60 border ${c.by?'border-yellow-700/60':'border-slate-800'} rounded p-1.5">${c.by?`<div class="col-span-3 md:col-span-6 text-[11px] text-yellow-300 font-semibold flex justify-between"><span>⚡ በቻርጅ ክፍል የተመዘገበ (${esc(c.by)})${c.note?' · '+esc(c.note):''}</span></div>`:''}<label>kWh<input type="number" inputmode="decimal" value="${c.kwh??''}" oninput="RVC[${i}].kwh=this.value;onRvChKwhInput(${i},this.value)" class="${i2}"></label><label>ብር<input id="rvChCost_${i}" type="number" inputmode="decimal" value="${c.cost??''}" oninput="RVC[${i}].cost=this.value" class="${i2}"></label><label>ባትሪ ከ%<input type="number" inputmode="numeric" value="${c.socFrom??''}" oninput="RVC[${i}].socFrom=this.value" class="${i2}"></label><label>ወደ %<input type="number" inputmode="numeric" value="${c.socTo??''}" oninput="RVC[${i}].socTo=this.value" class="${i2}"></label><label>ጣቢያ<input list="chgStationList" value="${esc(c.location||'')}" oninput="RVC[${i}].location=this.value" class="${i2}"></label><label>ለቻርጅ ኪ.ሜ<input type="number" inputmode="decimal" value="${c.km??''}" oninput="RVC[${i}].km=this.value;rvNextChk()" class="${i2}"></label><button onclick="RVC.splice(${i},1);drawRvCh()" class="col-span-3 md:col-span-6 text-rose-300 text-right">✕ አስወግድ</button></div>`).join('')||'<div class="text-slate-500">ቻርጅ አልገባም — "＋ ቻርጅ ጨምር" ወይም "ቻርጅ አልተደረገም"</div>';rvNextChk()}
 function rvNextCalc(){return Math.round((+RV.endKm+($('rvNone').checked?0:RVC.reduce((a,c)=>a+(+c.km||0),0)))*10)/10}
 function rvNextChk(){if(!RV)return;const c=rvNextCalc(),v=$('rvNext').value;$('rvNext').placeholder=c;$('rvNextH').textContent=`ስሌት፦ End KM ${RV.endKm} + የቻርጅ ኪ.ሜ = ${c}`;$('rvWhyL').classList.toggle('hidden',v===''||Math.abs(+v-c)<=0.5)}
 async function rvApprove(){const fleet={charges:$('rvNone').checked?[]:RVC,none:$('rvNone').checked,nextStartKm:$('rvNext').value,nextReason:$('rvWhy').value};
@@ -2160,13 +2426,263 @@ async function csv(){const fr=prompt('Export from date (YYYY-MM-DD). Leave empty
  try{const t=await api('export.csv'+(fr.trim()?'?from='+encodeURIComponent(fr.trim()):''));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+t],{type:'text/csv'}));a.download=`ETEV_Audit_${ME.today}.csv`;a.click()}catch(e){alert('❌ '+e.message)}}
 async function downloadBackup(){try{const r=await fetch('/api/admin/backup',{headers:{authorization:'Bearer '+T}});if(!r.ok)throw new Error('Backup failed');const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`ETEV_backup_${ME.today}.json`;a.click()}catch(e){alert('❌ '+e.message)}}
 async function payout(){const mo=prompt('Payout month (YYYY-MM):',new Date(Date.now()+3*3600e3).toISOString().slice(0,7));if(!mo)return;try{const t=await api('payouts?month='+encodeURIComponent(mo));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='ETEV_Payout_'+mo+'.csv';a.click()}catch(e){alert('❌ '+e.message)}}
-async function showAudit(){try{const a=await api('admin/audit'),b=$('auditBox');b.classList.remove('hidden');b.innerHTML='<table class="w-full">'+a.map(x=>`<tr class="border-t border-slate-800"><td class="py-1 pr-2 font-mono text-slate-400 whitespace-nowrap">${esc(new Date(new Date(x.ts).getTime()+3*3600e3).toISOString().slice(0,16).replace('T',' '))}</td><td class="pr-2">${esc(x.actor)}</td><td class="pr-2 font-bold">${esc(x.action)}</td><td class="text-slate-400">${esc(x.detail||'')}</td>${auditDev(x)}</tr>`).join('')+'</table>'}catch(e){alert('❌ '+e.message)}}
+let AUDIT_CACHE=[];
+async function showAudit(){
+ try{
+  const a=await api('admin/audit?limit=600');
+  AUDIT_CACHE=Array.isArray(a)?a:[];
+  const actors=[...new Set(AUDIT_CACHE.map(x=>x.actor).filter(Boolean))].sort();
+  const actions=[...new Set(AUDIT_CACHE.map(x=>x.action).filter(Boolean))].sort();
+  const acSel=$('audActorFilter'),actSel=$('audActionFilter');
+  if(acSel){
+   const cur=acSel.value;
+   acSel.innerHTML='<option value="">👤 ሁሉም ተጠቃሚዎች (All Actors)</option>'+actors.map(u=>`<option value="${esc(u)}" ${u===cur?'selected':''}>${esc(u)}</option>`).join('');
+  }
+  if(actSel){
+   const cur=actSel.value;
+   actSel.innerHTML='<option value="">⚡ ሁሉም ድርጊቶች (All Actions)</option>'+actions.map(ac=>`<option value="${esc(ac)}" ${ac===cur?'selected':''}>${esc(ac)}</option>`).join('');
+  }
+  renderAuditTable();
+ }catch(e){alert('❌ '+e.message)}
+}
+function getFilteredAuditRows(){
+ const ac=($('audActorFilter')?.value||'').trim();
+ const act=($('audActionFilter')?.value||'').trim();
+ const q=($('audSearchInput')?.value||'').trim().toLowerCase();
+ return (AUDIT_CACHE||[]).filter(x=>{
+  if(ac&&x.actor!==ac)return false;
+  if(act&&x.action!==act)return false;
+  if(q&&![x.actor,x.action,x.detail,x.devId,x.dinfo,x.city,x.ip].some(v=>String(v||'').toLowerCase().includes(q)))return false;
+  return true;
+ });
+}
+function renderAuditTable(){
+ const b=$('auditBox');if(!b)return;
+ b.classList.remove('hidden');
+ const rows=getFilteredAuditRows();
+ if(!rows.length){b.innerHTML='<div class="text-slate-500 py-3 text-center">ምንም የኦዲት መዝገብ አልተገኘም (No matching audit records)</div>';return}
+ b.innerHTML=`<div class="text-[11px] text-slate-400 mb-1 flex justify-between"><span>${rows.length} መዝገቦች (records)</span></div><table class="w-full text-[11px]"><thead class="text-slate-400 text-left border-b border-slate-800"><tr><th class="py-1 pr-2">ሰዓት (Time)</th><th class="pr-2">ተጠቃሚ (Actor)</th><th class="pr-2">ድርጊት (Action)</th><th class="pr-2">ዝርዝር (Detail)</th><th>መሳሪያ (Device)</th></tr></thead><tbody>`+rows.map(x=>`<tr class="border-t border-slate-800/80"><td class="py-1 pr-2 font-mono text-slate-400 whitespace-nowrap">${esc(new Date(new Date(x.ts).getTime()+3*3600e3).toISOString().slice(0,16).replace('T',' '))}</td><td class="pr-2 font-semibold text-slate-200 whitespace-nowrap">${esc(x.actor)}</td><td class="pr-2 font-mono font-bold text-amber-300 whitespace-nowrap">${esc(x.action)}</td><td class="text-slate-300 pr-2">${esc(x.detail||'')}</td>${auditDev(x)}</tr>`).join('')+'</tbody></table>';
+}
+function exportAuditCsv(){
+ const rows=getFilteredAuditRows();
+ if(!rows.length)return alert('መጀመሪያ "📜 ኦዲት ጫን" ይጫኑ (Load audit log first)');
+ const q=v=>{v=String(v??'');if(/^[=+\-@\t\r]/.test(v))v="'"+v;return `"${v.replace(/"/g,'""')}"`};
+ const csvRows=[['Time (Addis)','Actor','Action','Shift ID','Detail','Device ID','Device Info','City','GPS']].concat(rows.map(x=>[
+  new Date(new Date(x.ts).getTime()+3*3600e3).toISOString().slice(0,19).replace('T',' '),
+  x.actor||'',x.action||'',x.shift_id??'',x.detail||'',x.devId||'',x.dinfo||'',x.city||'',x.geo||''
+ ]));
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(new Blob(['\uFEFF'+csvRows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));
+ a.download=`ETEV_Audit_Explorer_${ME?.today||new Date().toISOString().slice(0,10)}.csv`;
+ a.click();
+}
+async function forceLogoutAllSessions(){
+ if(!confirm('🔒 እርግጠኛ ነዎት? ሁሉም ሹፌሮች፣ ማናጀሮች፣ ፍሊት እና ፋይናንስ ወዲያውኑ ከሲስተሙ ይወጣሉ (Force sign-out everyone now)?'))return;
+ try{
+  const r=await api('admin/force-logout',{method:'POST',body:{}});
+  if(r.token){T=r.token;sessionStorage.setItem('etev_t',T)}
+  toast('🔒 ሁሉም ክፍለ-ጊዜዎች ወዲያውኑ ወጥተዋል (All active sessions signed out)');
+  showAudit();
+ }catch(e){alert('❌ '+e.message)}
+}
+function syncChargingUiFromCfg(){
+ const rate=Number(ME?.cfg?.chargeRateEtb??4.5);
+ const maxEtb=Number(ME?.cfg?.chargeMaxEtb??2500);
+ const stations=Array.isArray(ME?.cfg?.chargeStations)&&ME.cfg.chargeStations.length?ME.cfg.chargeStations:['ቦሌ ቻርጅ ጣቢያ (Bole)','መገናኛ ጣቢያ (Megenagna)','ዋና ጋራዥ (Main Garage)','ሳሪስ ጣቢያ (Saris)','M8trix'];
+ const dl=$('chgStationList');
+ if(dl)dl.innerHTML=stations.map(s=>`<option value="${esc(s)}"></option>`).join('');
+ if($('chLoc')&&(!$('chLoc').value||$('chLoc').value==='M8trix')&&stations[0])$('chLoc').value=stations[0];
+ if($('chgTariffHint'))$('chgTariffHint').textContent=rate>0?`· ታሪፍ ${rate} ብር/kWh${maxEtb>0?` (ከፍተኛ ${maxEtb} ብር)`:''}`:'';
+}
+function onChgKwhInput(val){
+ const rate=Number(ME?.cfg?.chargeRateEtb??0);
+ const kwh=parseFloat(val);
+ if(rate>0&&kwh>0&&$('chCost')){$('chCost').value=Math.round(kwh*rate*100)/100}
+}
+function onRvChKwhInput(idx,val){
+ const rate=Number(ME?.cfg?.chargeRateEtb??0);
+ const kwh=parseFloat(val);
+ if(rate>0&&kwh>0&&RVC[idx]){
+  const c=Math.round(kwh*rate*100)/100;
+  RVC[idx].cost=c;
+  const el=$('rvChCost_'+idx);if(el)el.value=c;
+ }
+}
 const rt=()=>$('repBox').textContent;
 function copyRep(){navigator.clipboard.writeText(rt());alert('📋 Copied')}
 function wa(){const v=VEH.find(x=>x.plate===$('vehicleSelect').value);open(`https://wa.me/${v?.phone||ME.cfg.whatsappAdmin}?text=${encodeURIComponent(rt())}`,'_blank')}
 function tgShare(){open(`https://t.me/share/url?url=${encodeURIComponent(location.origin)}&text=${encodeURIComponent(rt())}`,'_blank')}
 
 // ADMIN
+let ADM_TAB='all',ACHG_ST=[],AINSP=[],ADEBTORS=[],APOL_HIST=[],ABACKUP_DATA=null;
+const DEF_INSP_LIST=[
+ {id:'tyres',l:'ጎማዎች (Tyres)',serious:true,prop:false},
+ {id:'brakes',l:'ፍሬን (Brakes)',serious:true,prop:false},
+ {id:'warning',l:'ዳሽቦርድ ማስጠንቀቂያ መብራት (Warning lights)',serious:true,prop:false},
+ {id:'lights',l:'መብራቶችና ፍሬቻ (Lights)',serious:false,prop:false},
+ {id:'mirrors',l:'መስታወቶች (Mirrors)',serious:false,prop:false},
+ {id:'clean',l:'የውስጥ ንጽህና (Clean inside)',serious:false,prop:false},
+ {id:'body',l:'የውጭ ጭረት / ጉዳት (Body damage)',serious:false,prop:false},
+ {id:'seats',l:'ወንበሮችና በሮች (Seats & doors)',serious:false,prop:false},
+ {id:'safety',l:'የእሳት ማጥፊያ እና የመጀመሪያ እርዳታ (Extinguisher, first aid)',serious:false,prop:true},
+ {id:'tv',l:'📺 ቲቪ (TV)',serious:false,prop:true},
+ {id:'flash',l:'💾 ፍላሽ (Flash drive)',serious:false,prop:true},
+ {id:'speaker',l:'🔊 ስፒከር (Speaker)',serious:false,prop:true},
+ {id:'phone',l:'📱 ስልክ (Phone)',serious:false,prop:true},
+ {id:'led',l:'🪧 የላይ LED ስክሪን (Roof LED screen)',serious:false,prop:true}
+];
+function setAdminTab(tab){
+ ADM_TAB=tab||'all';
+ document.querySelectorAll('#admTabs [data-adm-tab]').forEach(b=>{
+  const on=b.dataset.admTab===ADM_TAB;
+  b.className=`px-3 py-1.5 rounded-xl font-bold ${on?'bg-indigo-600 text-white shadow':'bg-slate-800 text-slate-300 hover:bg-slate-700'}`;
+ });
+ document.querySelectorAll('#adm [data-adm-sec]').forEach(sec=>{
+  sec.classList.toggle('hidden',ADM_TAB!=='all'&&sec.dataset.admSec!==ADM_TAB);
+ });
+}
+function filterAdminSettings(q){
+ const inp=$('admSearch'),clr=$('admSearchClear');
+ if(inp&&inp.value!==q)inp.value=q;
+ const s=String(q||'').trim().toLowerCase();
+ if(clr)clr.classList.toggle('hidden',!s);
+ if(!s){setAdminTab(ADM_TAB);return}
+ document.querySelectorAll('#adm [data-adm-sec]').forEach(sec=>{
+  const match=sec.textContent.toLowerCase().includes(s)||[...sec.querySelectorAll('input,select')].some(el=>String(el.value||'').toLowerCase().includes(s));
+  sec.classList.toggle('hidden',!match);
+ });
+}
+function drawAdminChargeStations(){
+ const box=$('admChgStationsRows');if(!box)return;
+ box.innerHTML=ACHG_ST.map((st,i)=>`<div class="flex items-center gap-1.5"><span class="text-amber-300 font-mono text-[11px]">#${i+1}</span><input value="${esc(st)}" placeholder="የቻርጅ ጣቢያ ስም (Station name)" oninput="ACHG_ST[${i}]=this.value" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs"><button type="button" onclick="ACHG_ST.splice(${i},1);drawAdminChargeStations()" class="px-2 py-1 rounded bg-rose-950 text-rose-300">✕</button></div>`).join('')||'<div class="text-slate-500">ምንም ጣቢያ አልተመዘገበም</div>';
+}
+function drawAdminInspItems(){
+ const box=$('admInspRows');if(!box)return;
+ box.innerHTML=AINSP.map((it,i)=>`<div class="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5">
+  <span class="font-mono text-[10px] text-slate-500 w-16 truncate" title="${esc(it.id)}">${esc(it.id)}</span>
+  <input value="${esc(it.l)}" placeholder="የፍተሻ ነጥብ ስም (ለምሳሌ፦ ጎማዎች / Tyres)" onchange="AINSP[${i}].l=this.value" class="flex-1 min-w-[180px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs">
+  <label class="flex items-center gap-1 px-2 py-1 rounded bg-rose-950/50 border border-rose-800/60 text-rose-200 cursor-pointer"><input type="checkbox" ${it.serious?'checked':''} onchange="AINSP[${i}].serious=this.checked"><span>🔴 ከባድ (Holds Vehicle)</span></label>
+  <label class="flex items-center gap-1 px-2 py-1 rounded bg-indigo-950/50 border border-indigo-800/60 text-indigo-200 cursor-pointer"><input type="checkbox" ${it.prop?'checked':''} onchange="AINSP[${i}].prop=this.checked"><span>📦 ንብረት (Allows ❌)</span></label>
+  <button type="button" onclick="AINSP.splice(${i},1);drawAdminInspItems()" class="px-2 py-1 rounded bg-rose-950 text-rose-300">✕</button>
+ </div>`).join('');
+}
+function addAdminInspItem(){
+ AINSP.push({id:'custom_'+(AINSP.length+1)+'_'+Date.now().toString(36).slice(-3),l:'',serious:false,prop:false});
+ drawAdminInspItems();
+}
+function resetAdminInspItems(){
+ AINSP=JSON.parse(JSON.stringify(DEF_INSP_LIST));
+ drawAdminInspItems();
+}
+function drawAdminDebtors(c){
+ ADEBTORS=c._debtors||[];
+ const allDrv=c._allDrivers||[];
+ const sel=$('dpDriver');
+ if(sel){
+  sel.innerHTML=allDrv.map(d=>`<option value="${d.id}">${esc(d.name)}${d.plate?' ('+esc(d.plate)+')':''}</option>`).join('');
+ }
+ if($('dpUntil')&&!$('dpUntil').value){
+  const d7=new Date(Date.now()+7*864e5).toISOString().slice(0,10);
+  $('dpUntil').value=d7;
+ }
+ const box=$('admDebtorsList');if(!box)return;
+ if(!ADEBTORS.length){
+  box.innerHTML='<div class="text-emerald-300 bg-slate-900 border border-slate-800 rounded-xl p-2.5">✅ በአሁኑ ሰዓት የዕዳ ገደብ ያለፈበት ወይም ጊዜያዊ ፈቃድ ያለው ሹፌር የለም።</div>';
+  return;
+ }
+ box.innerHTML=ADEBTORS.map(d=>{
+  const p=d.permit,activePermit=p&&p.until>=(ME?.today||'');
+  return `<div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border ${d.locked?'border-rose-800':activePermit?'border-emerald-700':'border-slate-800'} rounded-xl px-3 py-2">
+   <div>
+    <span class="font-bold text-white">👤 ${esc(d.name)}</span>
+    ${d.plate?`<span class="font-mono text-amber-300 ml-1">(${esc(d.plate)})</span>`:''}
+    <span class="ml-2 font-mono font-bold ${d.balance>0?'text-rose-300':'text-emerald-300'}">ዕዳ፦ ${d.balance.toLocaleString()} ብር</span>
+    ${d.locked?`<span class="ml-2 px-2 py-0.5 rounded bg-rose-950 text-rose-300 font-bold text-[10px]">🛑 GATE LOCKED</span>`:''}
+    ${activePermit?`<span class="ml-2 px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold text-[10px]">🔓 ተፈቅዷል እስከ ${esc(p.until)} (${esc(p.note||'')})</span>`:''}
+   </div>
+   <div class="flex items-center gap-1.5">
+    ${activePermit?`<button type="button" onclick="revokeAdminDebtPermit(${d.id})" class="px-2.5 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-200 font-bold">🚫 ፈቃድ አንሳ (Revoke)</button>`
+    :`<button type="button" onclick="$('dpDriver').value='${d.id}';$('dpNote').focus()" class="px-2.5 py-1 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-white font-bold">🔓 ጊዜያዊ ፈቃድ ስጥ</button>`}
+   </div>
+  </div>`;
+ }).join('');
+}
+async function saveAdminDebtPermit(){
+ const driverId=$('dpDriver')?.value,until=$('dpUntil')?.value,note=$('dpNote')?.value.trim();
+ if(!driverId)return alert('ሹፌር ይምረጡ');
+ if(!until)return alert('የሚያበቃበትን ቀን ይምረጡ');
+ if(!note||note.length<3)return alert('የክፍያ ስምምነቱን / ምክንያቱን ይጻፉ');
+ try{
+  await api('admin/debt-permit',{method:'POST',body:{driverId,until,note}});
+  if($('dpNote'))$('dpNote').value='';
+  toast('🔓 የሹፌሩ ጊዜያዊ የGate Pass ፈቃድ ተቀምጧል');
+  const c=await api('admin/config');drawAdminDebtors(c);
+ }catch(e){alert('❌ '+e.message)}
+}
+async function revokeAdminDebtPermit(driverId){
+ if(!confirm('የዚህ ሹፌር ጊዜያዊ የዕዳ እፎይታ ፈቃድ ይነሳ?'))return;
+ try{
+  await api('admin/debt-permit',{method:'POST',body:{driverId,revoke:true}});
+  toast('🚫 ፈቃዱ ተነስቷል');
+  const c=await api('admin/config');drawAdminDebtors(c);
+ }catch(e){alert('❌ '+e.message)}
+}
+function drawAdminPolicyHistory(hist){
+ APOL_HIST=Array.isArray(hist)?hist:[];
+ const box=$('admPolicyHistList');if(!box)return;
+ if(!APOL_HIST.length){
+  box.innerHTML='<div class="text-slate-500 text-[11px]">ገና የተቀመጠ የቅንብር ታሪክ የለም (Save All ሲጫኑ እዚህ ይመዘገባል)</div>';
+  return;
+ }
+ box.innerHTML=APOL_HIST.map((h,idx)=>`<div class="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5">
+  <div>
+   <span class="font-mono text-amber-300 font-bold">#${idx+1}</span>
+   <span class="text-slate-300 ml-1">${esc(fmtTs(h.at))}</span>
+   <span class="text-slate-500 ml-1">· ${esc(h.by||'Admin')}</span>
+  </div>
+  <button type="button" onclick="rollbackAdminConfig('${esc(h.id)}')" class="px-2.5 py-1 rounded bg-amber-800 hover:bg-amber-700 text-white font-bold">⏪ ወደዚህ መልስ</button>
+ </div>`).join('');
+}
+async function rollbackAdminConfig(id){
+ if(!confirm('⏪ ወደዚህ የቀድሞ ቅንብር ይመለስ? (Restore this configuration snapshot?)'))return;
+ try{
+  await api('admin/config-rollback',{method:'POST',body:{id}});
+  toast('✅ የቀድሞው ቅንብር ተመልሷል (Configuration rolled back)');
+  await openAdmin();await boot();
+ }catch(e){alert('❌ '+e.message)}
+}
+async function onAdminBackupFileChange(){
+ const f=$('admBackupFile')?.files?.[0];
+ ABACKUP_DATA=null;
+ const st=$('admBackupVerifyStatus');
+ if(!f){if(st)st.classList.add('hidden');return}
+ try{
+  ABACKUP_DATA=JSON.parse(await f.text());
+  await runAdminBackupRestore('verify');
+ }catch(e){
+  if(st){st.classList.remove('hidden');st.innerHTML=`<span class="text-rose-400">❌ ፋይሉ ትክክለኛ JSON አይደለም፦ ${esc(e.message)}</span>`}
+ }
+}
+async function runAdminBackupRestore(mode){
+ if(!ABACKUP_DATA){
+  const f=$('admBackupFile')?.files?.[0];
+  if(!f)return alert('📦 መጀመሪያ የባካፕ (.json) ፋይል ይምረጡ');
+  try{ABACKUP_DATA=JSON.parse(await f.text())}catch(e){return alert('❌ Invalid JSON: '+e.message)}
+ }
+ if(mode!=='verify'&&!confirm(mode==='full'?'♻️ የባካፕ ቅንብሮችና የጎደሉ መዝገቦች (ወጪ፣ ክፍያ፣ ቻርጅ) ይመለሱ?':'⚙️ የባካፕ ቅንብሮች (Policy) ብቻ ይመለሱ?'))return;
+ try{
+  const r=await api('admin/backup-restore',{method:'POST',body:{backup:ABACKUP_DATA,mode}});
+  const st=$('admBackupVerifyStatus');
+  if(st){
+   st.classList.remove('hidden');
+   const c=r.counts||{};
+   st.innerHTML=`<div class="text-emerald-300 font-bold">${mode==='verify'?'✅ ትክክለኛ የETEV ባካፕ ፋይል ነው':'✅ ባካፑ በተሳካ ሁኔታ ተመልሷል'} ${r.exportedAt?`(${esc(r.exportedAt.slice(0,16).replace('T',' '))})`:''}</div>
+    <div class="text-slate-300">🚐 መኪኖች: <b>${c.vehicles||0}</b> · 👤 ሹፌሮች: <b>${c.drivers||0}</b> · 📋 ፈረቃዎች: <b>${c.shifts||0}</b> · 💵 ክፍያዎች: <b>${c.payments||0}</b> · ⚡ ቻርጅ: <b>${c.charging||0}</b> · 🧾 ወጪዎች: <b>${c.expenses||0}</b></div>
+    ${r.restoredRows!=null?`<div class="text-amber-300">♻️ የተመለሱ መዝገቦች፦ <b>${r.restoredRows}</b></div>`:''}`;
+  }
+  if(mode!=='verify'){toast('✅ ከባካፕ ተመልሷል');await openAdmin();await boot()}
+ }catch(e){alert('❌ '+e.message)}
+}
 const CF=[['adminName','Admin name'],['minAccept','Min Accept %'],['bufferKm','Buffer KM'],['penaltyRate','Penalty ETB/KM'],['cabbyT1Min','Cabby T1 min'],['cabbyT1Max','Cabby T1 max'],['cabbyT1Rate','Cabby T1 rate'],['cabbyT2Rate','Cabby T2 rate'],['yangoT2Min','Yango T2 min'],['yangoT2Max','Yango T2 max'],['yangoT2Rate','Yango T2 rate'],['yangoT3Rate','Yango T3 rate'],['whatsappAdmin','WhatsApp (admin)']];
 const AF=[['lowBatteryPct','🔋 Default fallback low battery threshold (%)'],['reserveRangeKm','🟣 Reserve: vehicle range (KM)'],['reserveBattMarginPct','🟣 Reserve: battery margin %'],['reserveBonusPerRun','🟣 Reserve: driver bonus per run (ETB)'],['reserveMatchMin','🟣 Reserve: match Cabby bookings within (minutes)'],['maxDailyKm','Alert if one shift is over (KM)'],['reminderHour','Daily reminder hour (0–23, Addis)'],['standardHours','Standard working hours (overtime after)'],['overtimeRate','Overtime pay (ETB per hour, 0 = unpaid)']];
 const BATT_CAT_META=[
@@ -2277,6 +2793,14 @@ let AV=[],AM=[];
 async function openAdmin(){try{const c=await api('admin/config'),mg=await api('admin/managers');
  $('cfgFields').innerHTML=CF.map(([k,l])=>`<label><span class="text-slate-400">${l}</span><input id="cf_${k}" value="${esc(c[k])}" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>`).join('')+`<label class="flex gap-2 items-center"><input type="checkbox" id="cf_autoPushTg" ${c.autoPushTg?'checked':''}> Auto-push reports to Telegram</label>`;
  ABT=normABT(c);drawAdminBatteryThresholds();
+ if($('cf_chargeRateEtb'))$('cf_chargeRateEtb').value=c.chargeRateEtb??4.5;
+ if($('cf_chargeMaxEtb'))$('cf_chargeMaxEtb').value=c.chargeMaxEtb??2500;
+ ACHG_ST=Array.isArray(c.chargeStations)&&c.chargeStations.length?[...c.chargeStations]:['ቦሌ ቻርጅ ጣቢያ (Bole)','መገናኛ ጣቢያ (Megenagna)','ዋና ጋራዥ (Main Garage)','ሳሪስ ጣቢያ (Saris)','M8trix'];
+ drawAdminChargeStations();
+ AINSP=Array.isArray(c.inspItems)&&c.inspItems.length?c.inspItems.map(x=>({...x})):JSON.parse(JSON.stringify(DEF_INSP_LIST));
+ drawAdminInspItems();
+ drawAdminDebtors(c);
+ drawAdminPolicyHistory(c._policyHistory||[]);
  $('alertFields').innerHTML=AF.map(([k,l])=>`<label><span class="text-slate-400">${l}</span><input id="cf_${k}" type="number" ${k==='lowBatteryPct'?'min="0" max="100" oninput="if(ABT.any){ABT.any.alertPct=Math.max(0,Math.min(100,+this.value||0));if(ABT.any.warnPct<ABT.any.alertPct)ABT.any.warnPct=ABT.any.alertPct;drawAdminBatteryThresholds()}"':''} value="${esc(c[k]??(k==='lowBatteryPct'?20:''))}" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>`).join('')+`<label class="flex gap-2 items-center"><input type="checkbox" id="cf_alertsTg" ${c.alertsTg?'checked':''}> 🚨 Telegram alerts (low battery, odometer gap, cash short, too many KM, gate locked)</label><label class="flex gap-2 items-center"><input type="checkbox" id="cf_reminderOn" ${c.reminderOn?'checked':''}> ⏰ Daily missing-report reminder</label>`;
  $('extraFields').innerHTML=`<label class="flex gap-2 items-center"><input type="checkbox" id="cf_requirePhotos" ${c.requirePhotos?'checked':''}> 📷 Require odometer + receipt photos before a manager can approve</label>`+
   [['photoKeepDays','Keep photos for (days, 7–365)'],['serviceWarnKm','Warn before service (KM)'],['debtLockEtb','Lock gate when debt is over (ETB, 0 = never)']].map(([k,l])=>`<label><span class="text-slate-400">${l}</span><input id="cf_${k}" type="number" value="${esc(c[k])}" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 mt-1"></label>`).join('')+
@@ -2293,18 +2817,20 @@ async function openAdmin(){try{const c=await api('admin/config'),mg=await api('a
  if($('cf_quietHoursOn'))$('cf_quietHoursOn').checked=!!c.quietHoursOn;
  if($('cf_quietStartHour'))$('cf_quietStartHour').value=c.quietStartHour??22;
  if($('cf_quietEndHour'))$('cf_quietEndHour').value=c.quietEndHour??6;
- $('notifyRows').innerHTML=Object.entries(NTY).map(([t,l])=>`<tr class="border-t border-slate-800"><td class="py-1.5">${esc(l)}</td>${['admin','manager','fleet','finance'].map(r=>`<td class="text-center"><select aria-label="${t} ${r}" onchange="(NLV['${t}']=NLV['${t}']||{})['${r}']=+this.value" class="bg-slate-950 border border-slate-700 rounded px-1 py-1">${LV.map(([v,x])=>`<option value="${v}" ${(NLV[t]||{})[r]===v?'selected':''}>${x}</option>`).join('')}</select></td>`).join('')}</tr>`).join('');
+ $('notifyRows').innerHTML=Object.entries(NTY).map(([t,l])=>`<tr class="border-t border-slate-800"><td class="py-1.5">${esc(l)}</td>${['admin','manager','fleet','charging','finance'].map(r=>`<td class="text-center"><select aria-label="${t} ${r}" onchange="(NLV['${t}']=NLV['${t}']||{})['${r}']=+this.value" class="bg-slate-950 border border-slate-700 rounded px-1 py-1">${LV.map(([v,x])=>`<option value="${v}" ${(NLV[t]||{})[r]===v?'selected':''}>${x}</option>`).join('')}</select></td>`).join('')}</tr>`).join('');
  drawChannel(c._channel);drawRChannel(c._rchannel);loadUsage();
  $('admTg').textContent=c._tgLinked?'✅ የእርስዎ ቴሌግራም ተገናኝቷል።':'⚠️ የእርስዎ ቴሌግራም ገና አልተገናኘም — 🔔 › 🔗 ቴሌግራም አገናኝ።';
  AR=(c.routes||[]).map(r=>({...r}));drawRoutes();
  RB=JSON.parse(JSON.stringify(c.routeBonus||{mode:'tiers',tiers:[],pct:10,cap:0}));$('rbMode').value=RB.mode;$('rbPctV').value=RB.pct;$('rbCap').value=RB.cap;$('cf_routeMissAlert').value=c.routeMissAlert??3;drawRB();ADT=JSON.parse(JSON.stringify(c.docTypes||[]));drawDT();$('cf_docRemindDays').value=c.docRemindDays||'30,7,1';
  AM=mg.managers.map(m=>({...m,pin:''}));$('mgrLegacy').classList.toggle('hidden',!mg.legacy);drawMgr();
- PERMS=JSON.parse(JSON.stringify(c.perms||{}));['manager','fleet','finance'].forEach(r=>PERMS[r]=PERMS[r]||{});drawPerms();AXC=(c.expenseCats||[]).map(x=>({...x}));drawCats();$('adm').classList.remove('hidden')}catch(e){alert('❌ '+e.message)}}
-const ROLE_OPT=[['manager','👔 Manager'],['fleet','🛠 Fleet Admin'],['finance','💼 Finance']];
+ PERMS=JSON.parse(JSON.stringify(c.perms||{}));['manager','fleet','charging','finance'].forEach(r=>PERMS[r]=PERMS[r]||{});drawPerms();AXC=(c.expenseCats||[]).map(x=>({...x}));drawCats();
+ setAdminTab(ADM_TAB||'all');
+ $('adm').classList.remove('hidden')}catch(e){alert('❌ '+e.message)}}
+const ROLE_OPT=[['manager','👔 Manager'],['fleet','🛠 Fleet Admin'],['charging','⚡ Charging Dept (የቻርጅ ክፍል)'],['finance','💼 Finance']];
 const PERM_L={approve:'ሪፖርት ማጽደቅ / መመለስ · Approve or return reports',photos:'የፎቶ ማስረጃ ማየት · View photo proof',charging:'ቻርጅ መመዝገብ · Charging log',startKm:'መነሻ ኪ.ሜ ማስተካከል · Next start KM (with reason)',service:'ሰርቪስ መመዝገብ · Mark serviced',vehicles:'መኪና እና ሹፌር · Add / edit vehicles and drivers',driverPin:'የሹፌር PIN መቀየር · Change driver PIN',assign:'ተተኪ ሹፌር መመደብ · Assign a driver for a day',opsDash:'የኦፕሬሽን ዳሽቦርድ · Operations dashboard',payments:'የሹፌር ክፍያ መቀበል · Record driver payments',platform:'ቴሌብር / ካቢ / ያንጎ ማመሳከሪያ · Statement check',reports:'የገንዘብ ሪፖርቶች · Money reports, Payout, CSV',salary:'ደሞዝ ማየት · See salaries',expenses:'ወጪ መመዝገብ (ሁሉም) · Record all expenses',repairs:'የጥገና ወጪ መመዝገብ · Record repair-type expenses',mgrStats:'የማናጀሮች አፈጻጸም · Manager performance',audit:'የኦዲት ሎግ · Audit log',closeDay:'📕 ቀን መዝጋት · Close the day (Finance)',incidents:'🚨 አደጋ / መኪና ከስራ ውጭ መወሰን · Decide incidents, vehicle back to work or repair'};
 let PERMS={},AXC=[];
 function drawCats(){$('catRows').innerHTML=AXC.map((c,i)=>`<div class="grid grid-cols-6 gap-1 items-center"><input value="${esc(c.name)}" onchange="AXC[${i}].name=this.value" class="col-span-4 bg-slate-950 border border-slate-700 rounded px-1 py-1"><label class="flex items-center gap-1"><input type="checkbox" ${c.fleet?'checked':''} onchange="AXC[${i}].fleet=this.checked"> Fleet</label><button onclick="AXC.splice(${i},1);drawCats()" class="rounded bg-rose-950 text-rose-300 py-1">✕</button></div>`).join('')}
-function drawPerms(){$('permRows').innerHTML=Object.keys(PERM_L).map(k=>`<tr class="border-t border-slate-800"><td class="py-1.5">${PERM_L[k]}</td>${['manager','fleet','finance'].map(r=>`<td class="text-center"><input type="checkbox" aria-label="${r} ${k}" ${PERMS[r]&&PERMS[r][k]?'checked':''} onchange="PERMS['${r}']['${k}']=this.checked"></td>`).join('')}</tr>`).join('')}
+function drawPerms(){$('permRows').innerHTML=Object.keys(PERM_L).map(k=>`<tr class="border-t border-slate-800"><td class="py-1.5">${PERM_L[k]}</td>${['manager','fleet','charging','finance'].map(r=>`<td class="text-center"><input type="checkbox" aria-label="${r} ${k}" ${PERMS[r]&&PERMS[r][k]?'checked':''} onchange="PERMS['${r}']['${k}']=this.checked"></td>`).join('')}</tr>`).join('')}
 function drawMgr(){$('mgrRows').innerHTML=AM.map((g,i)=>`<div class="grid grid-cols-7 gap-1"><input value="${esc(g.name)}" onchange="AM[${i}].name=this.value" class="col-span-3 bg-slate-950 border border-slate-700 rounded px-1 py-1"><select onchange="AM[${i}].role=this.value" class="bg-slate-950 border border-slate-700 rounded px-1">${ROLE_OPT.map(([k,l])=>`<option value="${k}" ${(g.role||'manager')===k?'selected':''}>${l}</option>`).join('')}</select><input maxlength="12" inputmode="numeric" placeholder="${g.id?'keep current':'6–12 digits'}" onchange="AM[${i}].pin=this.value.trim()" class="col-span-2 bg-slate-950 border border-amber-700 rounded px-1 text-center"><label class="flex items-center gap-1"><input type="checkbox" ${g.active!==false?'checked':''} onchange="AM[${i}].active=this.checked"> on</label></div>`).join('')||'<div class="text-slate-500">No named managers yet.</div>'}
 function addMgr(){AM.push({name:'',pin:'',active:true,role:'manager'});drawMgr()}
 async function saveAdmin(){try{
@@ -2325,6 +2851,10 @@ async function saveAdmin(){try{
  b.quietHoursOn=!!($('cf_quietHoursOn')&&$('cf_quietHoursOn').checked);
  b.quietStartHour=$('cf_quietStartHour')?+$('cf_quietStartHour').value:22;
  b.quietEndHour=$('cf_quietEndHour')?+$('cf_quietEndHour').value:6;
+ b.chargeRateEtb=$('cf_chargeRateEtb')?+$('cf_chargeRateEtb').value:4.5;
+ b.chargeMaxEtb=$('cf_chargeMaxEtb')?+$('cf_chargeMaxEtb').value:2500;
+ b.chargeStations=ACHG_ST.map(s=>String(s||'').trim()).filter(Boolean);
+ b.inspItems=AINSP.filter(it=>String(it.l||'').trim()).map((it,idx)=>({id:it.id||('item_'+(idx+1)),l:String(it.l).trim(),serious:!!it.serious,prop:!!it.prop}));
  if($('nAdminPin').value.trim())b.adminPin=$('nAdminPin').value.trim();
  b.perms=PERMS;b.expenseCats=AXC.map((c,i)=>({id:c.id||c.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'cat-'+(i+1)+'-'+Date.now().toString(36),name:c.name,fleet:!!c.fleet}));
  if(AM.length)await api('admin/users',{method:'PUT',body:AM.map(g=>({id:g.id,name:g.name,role:g.role||'manager',active:g.active!==false,pin:g.pin||undefined}))});
@@ -2362,13 +2892,126 @@ async function savePayment(){const plate=window.sumPlate;if(!window.sumDriver)re
   ['pAmt','pRef','pNote'].forEach(i=>$(i).value='');alert(`✅ Payment recorded. Still owes: ${Math.max(0,Math.round(r.balance.balance))} ETB`);loadSum(plate,window.sumDriver);if(!$('dash').classList.contains('hidden'))loadDash()}catch(e){alert('❌ '+e.message)}}
 async function delPayment(id){if(!confirm('Delete this payment record?'))return;try{await api('payments/'+id,{method:'DELETE'});loadSum(window.sumPlate)}catch(e){alert('❌ '+e.message)}}
 
-// EV CHARGING
+// EV CHARGING DEPARTMENT WORKSPACE
+let CHG_DATA={rows:[],queue:[],kpi:null};
 function toggleChg(){$('chg').classList.toggle('hidden');if(!$('chg').classList.contains('hidden'))loadCharges()}
-async function loadCharges(){try{const L=await api('charging?days=30');
- $('chRows').innerHTML=L.length?L.map(c=>`<tr class="border-t border-slate-800"><td class="py-1 font-mono">${esc(c.date)}</td><td><b>${esc(c.plate)}</b></td><td class="font-mono">${c.kwh}</td><td class="font-mono">${Math.round(c.cost)}</td><td>${c.socFrom??'–'}% → ${c.socTo??'–'}%</td><td class="font-mono">${c.odoKm??'–'}</td><td>${esc(c.location)}</td><td class="text-slate-400">${esc(c.by)}</td><td>${ME.role==='admin'?`<button onclick="delCharge(${c.id})" class="text-rose-300">🗑️</button>`:''}</td></tr>`).join(''):'<tr><td class="text-slate-500 py-2">No charging sessions yet.</td></tr>'}catch(e){}}
-async function saveCharge(){try{await api('charging',{method:'POST',body:{plate:$('chPlate').value,date:$('chDate').value,kwh:$('chKwh').value,cost:$('chCost').value,socFrom:$('chFrom').value,socTo:$('chTo').value,odoKm:$('chOdo').value,location:$('chLoc').value}});
- ['chKwh','chCost','chFrom','chTo','chOdo'].forEach(i=>$(i).value='');await loadCharges();if(!$('dash').classList.contains('hidden'))loadDash()}catch(e){alert('❌ '+e.message)}}
-async function delCharge(id){if(!confirm('Delete this charging record?'))return;try{await api('charging/'+id,{method:'DELETE'});loadCharges()}catch(e){alert('❌ '+e.message)}}
+async function loadCharges(){
+ try{
+  const days=$('chgDaysSel')?(+$('chgDaysSel').value||30):30;
+  const res=await api(`charging?days=${days}&meta=1`);
+  const rows=Array.isArray(res)?res:(res.rows||[]);
+  CHG_DATA={rows,queue:res.queue||[],kpi:res.kpi||null};
+  if($('chgFilterPlate')){
+   const cur=$('chgFilterPlate').value;
+   $('chgFilterPlate').innerHTML='<option value="">🚐 ሁሉም መኪኖች (All Vehicles)</option>'+(ME.vehicles||[]).map(v=>`<option value="${esc(v.plate)}" ${v.plate===cur?'selected':''}>${esc(v.plate)} (${esc(v.driver||'')})</option>`).join('');
+  }
+  renderChgKpi();
+  renderChgQueue();
+  renderChgTable();
+  if($('chPlate')&&$('chPlate').value)onChPlateChange($('chPlate').value);
+ }catch(e){}
+}
+function renderChgKpi(){
+ const k=CHG_DATA.kpi;
+ if(!$('chgKpiStrip')||!k)return;
+ const card=(lbl,val,sub,cls='border-slate-800 text-slate-100')=>`<div class="bg-slate-950 border ${cls} rounded-xl p-2.5"><div class="text-[11px] text-slate-400">${lbl}</div><div class="text-sm font-extrabold font-mono mt-0.5">${val}</div><div class="text-[10px] text-slate-400 mt-0.5">${sub}</div></div>`;
+ $('chgKpiStrip').innerHTML=[
+  card('⚡ የዛሬ ቻርጅ (Today)',`${k.todayCount} ጊዜ · ${k.todayKwh} kWh`,`ለቻርጅ የተነዳ፦ ${k.todayKm||0} KM`,'border-yellow-800/60 text-yellow-300'),
+  card('💵 የዛሬ ወጪ (Today Cost)',`${Math.round(k.todayCost).toLocaleString()} ብር`,`አማካይ ታሪፍ፦ ${k.avgRateEtb} ብር/kWh`,'border-emerald-800/60 text-emerald-300'),
+  card(`📊 የ${k.periodDays} ቀን ፍጆታ`,`${k.periodKwh.toLocaleString()} kWh`,`${k.periodCount} ጊዜ ተሞልቷል`,'border-cyan-800/60 text-cyan-300'),
+  card(`💰 የ${k.periodDays} ቀን ወጪ`,`${Math.round(k.periodCost).toLocaleString()} ብር`,`በአንድ ጊዜ አማካይ፦ ${k.periodCount?Math.round(k.periodCost/k.periodCount):0} ብር`,'border-indigo-800/60 text-indigo-300'),
+  card('🔋 አሁን ቻርጅ የሚፈልጉ',`${k.needsChargeCount} መኪኖች`,`ዝቅተኛ ባትሪ፦ ${k.lowBatteryCount} · ፈረቃ ላይ፦ ${k.pendingShiftCount}`,k.needsChargeCount>0?'border-rose-700/80 text-rose-300 bg-rose-950/20':'border-slate-800 text-emerald-300')
+ ].join('');
+ if($('chStationBar')){
+  $('chStationBar').innerHTML=(k.byStation||[]).map(s=>`<button type="button" onclick="$('chgFilterQ').value='${esc(s.station)}';renderChgTable()" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-yellow-700 text-[11px] flex items-center gap-1.5"><span>⚡ <b>${esc(s.station)}</b></span><span class="font-mono text-yellow-300">${s.kwh} kWh</span><span class="text-slate-400">(${Math.round(s.cost).toLocaleString()} ብር · ${s.count}x)</span></button>`).join('');
+ }
+}
+function renderChgQueue(){
+ if(!$('chgQueueBox'))return;
+ const q=CHG_DATA.queue||[];
+ const showAll=$('chgShowAllVeh')&&$('chgShowAllVeh').checked;
+ const needCnt=q.filter(x=>x.needsCharge).length;
+ if($('chgQueueCountBadge'))$('chgQueueCountBadge').textContent=`${needCnt} ቻርጅ የሚፈልጉ / ${q.length} ጠቅላላ`;
+ const list=showAll?q:q.filter(x=>x.needsCharge||x.chargedTodayCount>0);
+ if(!list.length){
+  $('chgQueueBox').innerHTML='<div class="col-span-full text-slate-400 py-2">✅ አሁን አስቸኳይ ቻርጅ የሚፈልግ ወይም ያልተሞላ የዛሬ ሪፖርት ያለው መኪና የለም። (ሁሉንም ለማየት "ሁሉንም መኪኖች አሳይ" ይጫኑ)</div>';
+  return;
+ }
+ $('chgQueueBox').innerHTML=list.map(v=>{
+  const soc=v.effectiveSoc!=null?v.effectiveSoc:v.batterySoc;
+  const socCls=v.lowBattery?'text-rose-300 border-rose-700/80 bg-rose-950/20':v.pendingNeedCharge?'text-amber-200 border-amber-700/80 bg-amber-950/20':'text-emerald-300 border-slate-800 bg-slate-900/70';
+  const modeBadge=v.mode==='route'?'🟢 ቀጠና':v.mode==='cabby'?'🔵 ካቢ':'⚪ ሁሉም';
+  return `<div class="border ${socCls} rounded-xl p-2.5 flex flex-col justify-between gap-2">
+   <div>
+    <div class="flex items-center justify-between gap-1">
+     <span class="font-mono font-extrabold text-sm text-white">${esc(v.plate)}</span>
+     <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">${modeBadge}</span>
+    </div>
+    <div class="text-[11px] text-slate-300 truncate mt-0.5">👤 ${esc(v.driver||'—')}</div>
+    <div class="flex flex-wrap items-center gap-2 mt-1.5 text-[11px]">
+     <span class="font-mono font-bold ${v.lowBattery?'text-rose-300':'text-emerald-300'}">🔋 ${soc!=null?soc+'%':'—'} <span class="text-[10px] text-slate-400">(ገደብ ${v.alertPct}%)</span></span>
+     <span class="font-mono text-slate-300">🔢 ${v.endKm||0} KM</span>
+    </div>
+    <div class="mt-1 text-[10px]">
+     ${v.pendingNeedCharge?'<span class="text-amber-300 font-semibold">⏳ የዛሬ ሪፖርት ገብቷል — ቻርጅ ይጠብቃል</span>':v.chargedTodayCount?`<span class="text-emerald-300">✅ ዛሬ ${v.chargedTodayCount}x ተሞልቷል (${v.chargedTodayKwh} kWh)</span>`:v.lowBattery?'<span class="text-rose-300 font-semibold">🚨 ባትሪ ከገደብ በታች ነው</span>':'<span class="text-slate-400">መደበኛ</span>'}
+    </div>
+   </div>
+   <button type="button" onclick="pickVehicleForCharge('${esc(v.plate)}',${v.batterySoc!=null?v.batterySoc:"''"},${v.endKm||"''"})" class="w-full py-1.5 px-2.5 rounded-lg bg-yellow-600/90 hover:bg-yellow-500 text-slate-950 font-bold text-[11px] text-center">⚡ ቻርጅ መዝግብ (Fill Charge)</button>
+  </div>`;
+ }).join('');
+}
+function onChPlateChange(plate){
+ const q=(CHG_DATA.queue||[]).find(x=>x.plate===plate);
+ if(!q){if($('chSelectedHint'))$('chSelectedHint').textContent='';return;}
+ if($('chSelectedHint'))$('chSelectedHint').textContent=`👤 ${q.driver||'—'} · 🔋 የመጨረሻ ባትሪ፦ ${q.batterySoc!=null?q.batterySoc+'%':'—'} · 🔢 End KM፦ ${q.endKm||0}`;
+}
+function pickVehicleForCharge(plate,socFrom,odoKm){
+ if($('chPlate'))$('chPlate').value=plate;
+ if($('chDate'))$('chDate').value=ME.today||new Date(Date.now()+3*3600e3).toISOString().slice(0,10);
+ if($('chFrom')&&socFrom!==''&&socFrom!=null)$('chFrom').value=socFrom;
+ if($('chOdo')&&odoKm!==''&&odoKm!=null)$('chOdo').value=odoKm;
+ onChPlateChange(plate);
+ if($('chKwh')){$('chKwh').focus();$('chForm').scrollIntoView({behavior:'smooth',block:'center'})}
+}
+function renderChgTable(){
+ if(!$('chRows'))return;
+ const fPlate=$('chgFilterPlate')?$('chgFilterPlate').value:'';
+ const fQ=($('chgFilterQ')?$('chgFilterQ').value:'').trim().toLowerCase();
+ const canDel=ME&&((ME.role==='admin')||(ME.perms&&ME.perms.charging));
+ const list=(CHG_DATA.rows||[]).filter(c=>{
+  if(fPlate&&c.plate!==fPlate)return false;
+  if(fQ&&![c.plate,c.location,c.by,c.note,c.date].some(v=>String(v||'').toLowerCase().includes(fQ)))return false;
+  return true;
+ });
+ if($('chgRowsCount'))$('chgRowsCount').textContent=`${list.length} መዝገቦች (records)`;
+ $('chRows').innerHTML=list.length?list.map(c=>`<tr class="border-t border-slate-800 hover:bg-slate-950/60">
+  <td class="py-1.5 font-mono">${esc(c.date)}</td>
+  <td><b>${esc(c.plate)}</b>${c.shiftId?` <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">🔗 ፈረቃ #${c.shiftId}</span>`:''}</td>
+  <td class="font-mono font-bold text-yellow-300">${c.kwh}</td>
+  <td class="font-mono">${Math.round(c.cost).toLocaleString()} ብር</td>
+  <td class="font-mono">${c.socFrom??'–'}% → <b class="text-emerald-300">${c.socTo??'–'}%</b></td>
+  <td class="font-mono">${c.odoKm??'–'}${c.km?` <span class="text-cyan-300">(+${c.km} KM)</span>`:''}</td>
+  <td><b>${esc(c.location)}</b>${c.note?`<div class="text-[10px] text-slate-400">📝 ${esc(c.note)}</div>`:''}</td>
+  <td class="text-slate-400">${esc(c.by)}</td>
+  <td>${canDel&&(ME.role==='admin'||!c.shiftId)?`<button onclick="delCharge(${c.id})" title="Delete" class="text-rose-300 hover:text-rose-200 px-1">🗑️</button>`:''}</td>
+ </tr>`).join(''):'<tr><td colspan="9" class="text-slate-500 py-3 text-center">ምንም የቻርጅ መዝገብ አልተገኘም (No charging sessions found)</td></tr>';
+}
+function exportChargingCsv(){
+ const list=CHG_DATA.rows||[];
+ if(!list.length)return alert('ምንም የቻርጅ መዝገብ የለም');
+ const hdr=['Date','Plate','kWh','Cost_ETB','SOC_From','SOC_To','Odometer_KM','Charging_KM','Station','Note','Recorded_By','Shift_ID'];
+ const csvRows=[hdr.join(',')].concat(list.map(c=>[c.date,c.plate,c.kwh,c.cost,c.socFrom??'',c.socTo??'',c.odoKm??'',c.km||0,`"${String(c.location||'').replace(/"/g,'""')}"`,`"${String(c.note||'').replace(/"/g,'""')}"`,`"${String(c.by||'').replace(/"/g,'""')}"`,c.shiftId||''].join(',')));
+ const blob=new Blob(['\uFEFF'+csvRows.join('\n')],{type:'text/csv;charset=utf-8'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`etev-charging-${ME.today||'log'}.csv`;a.click();
+}
+async function saveCharge(){try{
+ const r=await api('charging',{method:'POST',body:{plate:$('chPlate').value,date:$('chDate').value,kwh:$('chKwh').value,cost:$('chCost').value,socFrom:$('chFrom').value,socTo:$('chTo').value,odoKm:$('chOdo').value,km:$('chKm')?$('chKm').value:0,location:$('chLoc').value,note:$('chNote')?$('chNote').value:''}});
+ ['chKwh','chCost','chFrom','chTo','chOdo','chNote'].forEach(i=>{if($(i))$(i).value=''});
+ if($('chKm'))$('chKm').value='0';
+ toast(`⚡ ቻርጅ ተመዝግቧል (${r.cost} ብር)`);
+ await loadCharges();if(!$('dash').classList.contains('hidden'))loadDash()
+}catch(e){alert('❌ '+e.message)}}
+async function delCharge(id){if(!confirm('ይህ የቻርጅ መዝገብ ይሰረዝ? (Delete this charging record?)'))return;try{await api('charging/'+id,{method:'DELETE'});loadCharges()}catch(e){alert('❌ '+e.message)}}
 async function markServiced(plate){const v=VEH.find(x=>x.plate===plate);const km=prompt(`Service done for ${plate}.\nOdometer at service (KM):`,v?v.nextStartKm:'');if(km===null)return;
  try{await api('vehicles/'+encodeURIComponent(plate)+'/serviced',{method:'POST',body:{km,date:ME.today}});ME=await api('me');VEH=ME.vehicles;alert('🔧 Saved');loadDash()}catch(e){alert('❌ '+e.message)}}
 
@@ -2456,8 +3099,8 @@ const NAV=[
  {id:'pay',ic:'💰',l:()=>'Payout',av:()=>shown('bPay'),act:()=>payout()},
  {id:'bell',ic:'🔔',l:()=>'መልዕክቶች',av:()=>true,act:()=>openBell()},
  {id:'out',ic:'🔒',l:()=>'ውጣ (Logout)',av:()=>true,act:()=>logout()}];
-const NAV_FIRST={driver:['home','tele','sched','sum'],manager:['home','live','sched','dash'],fleet:['live','sched','fleet','dash'],finance:['dcl','tele','fin','dash'],admin:['dash','home','fin','admin']};
-const NAV_HOME={driver:'home',manager:'home',fleet:'live',finance:'dcl',admin:'dash'};
+const NAV_FIRST={driver:['home','tele','sched','sum'],manager:['home','live','sched','dash'],fleet:['live','sched','fleet','dash'],charging:['chg','live','dash','hist'],finance:['dcl','tele','fin','dash'],admin:['dash','home','fin','admin']};
+const NAV_HOME={driver:'home',manager:'home',fleet:'live',charging:'chg',finance:'dcl',admin:'dash'};
 let VIEW='home',NAV_ON=[];
 function setView(v,push=true){VIEW=v;setTimeout(backBtn,0);$('mainV').dataset.view=v;$('viewCss').textContent=`#mainV > [data-v]:not([data-v="${v}"]):not([data-v="all"]){display:none!important}`;
  if(push){try{history.pushState({v},'')}catch{}}}
